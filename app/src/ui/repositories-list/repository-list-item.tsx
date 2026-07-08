@@ -96,10 +96,12 @@ export class RepositoryListItem extends React.Component<
     const label = repository.isPinned ? 'Unpin repository' : 'Pin repository'
     return (
       <button
+        type="button"
         className={classNames('pin-button', {
           pinned: repository.isPinned,
         })}
         onClick={this.onPinButtonClick}
+        onMouseDown={this.onPinButtonMouseDown}
         aria-label={label}
         aria-pressed={repository.isPinned}
         title={label}
@@ -107,6 +109,14 @@ export class RepositoryListItem extends React.Component<
         <Octicon symbol={octicons.pin} />
       </button>
     )
+  }
+
+  private onPinButtonMouseDown = (
+    event: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    // List 的行选中在 mousedown 阶段触发（list.tsx 的 onRowMouseDown），
+    // 必须在此阶段阻止冒泡，否则固定操作会同时切换选中仓库
+    event.stopPropagation()
   }
 
   private onPinButtonClick = (event: React.MouseEvent<HTMLButtonElement>) => {

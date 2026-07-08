@@ -193,6 +193,16 @@
   }
 }
 
+// 键盘导航时焦点在列表容器（.list-item 祖先）上，行内的 :focus-within
+// 不匹配，且 display: none 的按钮无法被 Tab 聚焦。List 组件会在焦点进入
+// 列表时给 .list-focus-container 添加 .focus-within class，借此让当前
+// 选中行的图钉按钮可见、可 Tab 聚焦。
+.list-focus-container.focus-within {
+  .list-item.selected .repository-list-item .pin-button {
+    display: flex;
+  }
+}
+
 .repository-list,
 .repository-list-item-tooltip {
   .repo-indicators {
