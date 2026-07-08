@@ -872,6 +872,14 @@ export class Dispatcher {
     return this.appStore._changeRepositoryAlias(repository, newAlias)
   }
 
+  /** Pins or unpins the repository in the repository list. */
+  public changeRepositoryPinned(
+    repository: Repository,
+    isPinned: boolean
+  ): Promise<void> {
+    return this.appStore._changeRepositoryPinned(repository, isPinned)
+  }
+
   /** Rename the branch to a new name. */
   public renameBranch(
     repository: Repository,

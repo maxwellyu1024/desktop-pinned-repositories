@@ -4889,6 +4889,14 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */
+  public async _changeRepositoryPinned(
+    repository: Repository,
+    isPinned: boolean
+  ): Promise<void> {
+    return this.repositoriesStore.updateRepositoryPinned(repository, isPinned)
+  }
+
+  /** This shouldn't be called directly. See `Dispatcher`. */
   public async _renameBranch(
     repository: Repository,
     branch: Branch,
