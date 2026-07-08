@@ -78,22 +78,29 @@
       color: var(--text-secondary-color);
       cursor: pointer;
 
-      // 默认隐藏，行悬停/键盘聚焦时显示；已固定项常驻显示
-      display: none;
+      // 默认透明占位（不能用 display: none 切换：FocusContainer 的
+      // focusout 会同步移除 .focus-within class，按钮会在 Tab 焦点落地前
+      // 变回不可达）。行悬停/聚焦或按钮自身聚焦时显示；已固定项常驻显示
+      display: flex;
+      opacity: 0;
 
       &:hover {
         color: var(--text-color);
       }
 
+      &:focus {
+        opacity: 1;
+      }
+
       &.pinned {
-        display: flex;
+        opacity: 1;
         color: var(--tab-bar-active-color);
       }
     }
 
     &:hover .pin-button,
     &:focus-within .pin-button {
-      display: flex;
+      opacity: 1;
     }
   }
 
@@ -194,12 +201,11 @@
 }
 
 // 键盘导航时焦点在列表容器（.list-item 祖先）上，行内的 :focus-within
-// 不匹配，且 display: none 的按钮无法被 Tab 聚焦。List 组件会在焦点进入
-// 列表时给 .list-focus-container 添加 .focus-within class，借此让当前
-// 选中行的图钉按钮可见、可 Tab 聚焦。
+// 不匹配。List 组件会在焦点进入列表时给 .list-focus-container 添加
+// .focus-within class，借此让当前选中行的图钉按钮立即可见。
 .list-focus-container.focus-within {
   .list-item.selected .repository-list-item .pin-button {
-    display: flex;
+    opacity: 1;
   }
 }
 

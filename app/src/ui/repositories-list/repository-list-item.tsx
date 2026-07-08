@@ -102,6 +102,7 @@ export class RepositoryListItem extends React.Component<
         })}
         onClick={this.onPinButtonClick}
         onMouseDown={this.onPinButtonMouseDown}
+        onKeyDown={this.onPinButtonKeyDown}
         aria-label={label}
         aria-pressed={repository.isPinned}
         title={label}
@@ -109,6 +110,17 @@ export class RepositoryListItem extends React.Component<
         <Octicon symbol={octicons.pin} />
       </button>
     )
+  }
+
+  private onPinButtonKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>
+  ) => {
+    // 行级 keydown（section-list.tsx）会对 Enter/Space preventDefault 并
+    // 切换行选中，吞掉按钮的原生激活。在此阻止冒泡，恢复按钮原生行为；
+    // 后续 click 事件由 onPinButtonClick 的 stopPropagation 兜住
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.stopPropagation()
+    }
   }
 
   private onPinButtonMouseDown = (
