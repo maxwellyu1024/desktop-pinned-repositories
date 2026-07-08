@@ -300,6 +300,7 @@ export class RepositoriesList extends React.Component<
       externalEditorLabel: this.props.externalEditorLabel,
       onChangeRepositoryAlias: this.onChangeRepositoryAlias,
       onRemoveRepositoryAlias: this.onRemoveRepositoryAlias,
+      onTogglePinRepository: this.onTogglePin,
       onViewOnGitHub: this.props.onViewOnGitHub,
       onCreateWorktree: enableWorktreeSupport()
         ? this.onCreateWorktree

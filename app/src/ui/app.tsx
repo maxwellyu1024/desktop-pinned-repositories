@@ -3418,6 +3418,13 @@ export class App extends React.Component<IAppProps, IAppState> {
       this.showWorktrees()
     }
 
+    const onTogglePinRepository = (repository: Repository) => {
+      this.props.dispatcher.changeRepositoryPinned(
+        repository,
+        !repository.isPinned
+      )
+    }
+
     const items = generateRepositoryListContextMenu({
       onRemoveRepository: this.removeRepository,
       onShowRepository: this.showRepository,
@@ -3428,6 +3435,7 @@ export class App extends React.Component<IAppProps, IAppState> {
       externalEditorLabel: this.externalEditorLabel,
       onChangeRepositoryAlias: onChangeRepositoryAlias,
       onRemoveRepositoryAlias: onRemoveRepositoryAlias,
+      onTogglePinRepository: onTogglePinRepository,
       onViewOnGitHub: this.viewOnGitHub,
       onCreateWorktree: enableWorktreeSupport() ? onCreateWorktree : undefined,
       onShowWorktrees: enableWorktreeSupport() ? onShowWorktrees : undefined,
