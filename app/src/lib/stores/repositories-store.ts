@@ -153,7 +153,8 @@ export class RepositoriesStore extends TypedBaseStore<
       repo.alias,
       repo.workflowPreferences,
       repo.isTutorialRepository,
-      repo.gitDir
+      repo.gitDir,
+      repo.isPinned
     )
   }
 
@@ -293,7 +294,8 @@ export class RepositoriesStore extends TypedBaseStore<
       repository.alias,
       repository.workflowPreferences,
       repository.isTutorialRepository,
-      repository.gitDir
+      repository.gitDir,
+      repository.isPinned
     )
   }
 
@@ -314,7 +316,8 @@ export class RepositoriesStore extends TypedBaseStore<
       repository.alias,
       repository.workflowPreferences,
       repository.isTutorialRepository,
-      gitDir
+      gitDir,
+      repository.isPinned
     )
   }
 
@@ -329,6 +332,21 @@ export class RepositoriesStore extends TypedBaseStore<
     alias: string | null
   ): Promise<void> {
     await this.db.repositories.update(repository.id, { alias })
+
+    this.emitUpdatedRepositories()
+  }
+
+  /**
+   * Update the pinned state for the specified repository.
+   *
+   * @param repository  The repository to update.
+   * @param isPinned    Whether the repository should be pinned.
+   */
+  public async updateRepositoryPinned(
+    repository: Repository,
+    isPinned: boolean
+  ): Promise<void> {
+    await this.db.repositories.update(repository.id, { isPinned })
 
     this.emitUpdatedRepositories()
   }
@@ -371,7 +389,8 @@ export class RepositoriesStore extends TypedBaseStore<
       repository.alias,
       repository.workflowPreferences,
       repository.isTutorialRepository,
-      gitDir
+      gitDir,
+      repository.isPinned
     )
   }
 
@@ -418,7 +437,8 @@ export class RepositoriesStore extends TypedBaseStore<
         repository.alias,
         repository.workflowPreferences,
         repository.isTutorialRepository,
-        gitDir
+        gitDir,
+        repository.isPinned
       ),
       existingRepository: false,
     }
@@ -567,7 +587,8 @@ export class RepositoriesStore extends TypedBaseStore<
       repo.alias,
       repo.workflowPreferences,
       repo.isTutorialRepository,
-      repo.gitDir
+      repo.gitDir,
+      repo.isPinned
     )
 
     assertIsRepositoryWithGitHubRepository(updatedRepo)

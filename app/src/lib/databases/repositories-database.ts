@@ -53,6 +53,9 @@ export interface IDatabaseRepository {
   readonly alias: string | null
   readonly missing: boolean
 
+  /** Whether the user has pinned this repository in the repository list */
+  readonly isPinned?: boolean
+
   /** The path to the .git directory for this repository */
   readonly gitDir?: string
 
