@@ -105,7 +105,6 @@ export class RepositoryListItem extends React.Component<
         onKeyDown={this.onPinButtonKeyDown}
         aria-label={label}
         aria-pressed={repository.isPinned}
-        title={label}
       >
         <Octicon symbol={octicons.pin} />
       </button>
