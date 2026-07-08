@@ -27,6 +27,9 @@ interface IRepositoryListItemProps {
 
   /** Number of uncommitted changes */
   readonly changedFilesCount: number
+
+  /** Called when the user clicks the pin button. Not rendered when absent. */
+  readonly onTogglePin?: (repository: Repository) => void
 }
 
 /** A repository item. */
@@ -81,8 +84,38 @@ export class RepositoryListItem extends React.Component<
             aheadBehind: this.props.aheadBehind,
             hasChanges: hasChanges,
           })}
+
+        {repository instanceof Repository &&
+          this.props.onTogglePin !== undefined &&
+          this.renderPinButton(repository)}
       </div>
     )
+  }
+
+  private renderPinButton(repository: Repository) {
+    const label = repository.isPinned ? 'Unpin repository' : 'Pin repository'
+    return (
+      <button
+        className={classNames('pin-button', {
+          pinned: repository.isPinned,
+        })}
+        onClick={this.onPinButtonClick}
+        aria-label={label}
+        aria-pressed={repository.isPinned}
+        title={label}
+      >
+        <Octicon symbol={octicons.pin} />
+      </button>
+    )
+  }
+
+  private onPinButtonClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    // 阻止点击冒泡到列表行，避免固定操作同时切换选中仓库
+    event.stopPropagation()
+    const { repository, onTogglePin } = this.props
+    if (repository instanceof Repository && onTogglePin !== undefined) {
+      onTogglePin(repository)
+    }
   }
 
   private renderTooltip() {
@@ -108,7 +141,7 @@ export class RepositoryListItem extends React.Component<
       this.props.repository instanceof Repository
     ) {
       return (
-        nextProps.repository.id !== this.props.repository.id ||
+        nextProps.repository.hash !== this.props.repository.hash ||
         nextProps.matches !== this.props.matches
       )
     } else {

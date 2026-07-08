@@ -65,6 +65,36 @@
     .alias {
       font-style: italic;
     }
+
+    .pin-button {
+      // 复位浏览器默认按钮样式
+      border: none;
+      background: transparent;
+      padding: 0;
+
+      margin-left: var(--spacing-half);
+      flex-shrink: 0;
+      align-items: center;
+      color: var(--text-secondary-color);
+      cursor: pointer;
+
+      // 默认隐藏，行悬停/键盘聚焦时显示；已固定项常驻显示
+      display: none;
+
+      &:hover {
+        color: var(--text-color);
+      }
+
+      &.pinned {
+        display: flex;
+        color: var(--tab-bar-active-color);
+      }
+    }
+
+    &:hover .pin-button,
+    &:focus-within .pin-button {
+      display: flex;
+    }
   }
 
   .filter-list-group-header {

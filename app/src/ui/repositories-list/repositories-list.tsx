@@ -163,6 +163,7 @@ export class RepositoriesList extends React.Component<
         matches={matches}
         aheadBehind={item.aheadBehind}
         changedFilesCount={item.changedFilesCount}
+        onTogglePin={this.onTogglePin}
       />
     )
   }
@@ -453,6 +454,13 @@ export class RepositoriesList extends React.Component<
 
   private onCreateNewRepository = () => {
     this.props.dispatcher.showPopup({ type: PopupType.CreateRepository })
+  }
+
+  private onTogglePin = (repository: Repository) => {
+    this.props.dispatcher.changeRepositoryPinned(
+      repository,
+      !repository.isPinned
+    )
   }
 
   private onChangeRepositoryAlias = (repository: Repository) => {
