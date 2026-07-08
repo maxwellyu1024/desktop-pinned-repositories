@@ -153,4 +153,115 @@ describe('repository list grouping', () => {
     assert.equal(grouped[2].items[1].text[0], 'enterprise-repo')
     assert(grouped[2].items[1].needsDisambiguation)
   })
+
+  it('includes isPinned in the repository hash', () => {
+    const unpinned = new Repository('repo', 1, null, false)
+    const pinned = new Repository(
+      'repo',
+      1,
+      null,
+      false,
+      null,
+      {},
+      false,
+      undefined,
+      true
+    )
+    assert.notEqual(pinned.hash, unpinned.hash)
+  })
+
+  it('places pinned repositories in a pinned group before all others', () => {
+    // 总数 <= 7，Recent 组不显示，但 Pinned 组应始终显示
+    const pinnedRepo = new Repository(
+      'pinned-repo',
+      4,
+      null,
+      false,
+      null,
+      {},
+      false,
+      undefined,
+      true
+    )
+    const grouped = groupRepositories([...repositories, pinnedRepo], cache, [])
+
+    assert.equal(grouped.length, 4)
+    assert.equal(grouped[0].identifier.kind, 'pinned')
+    assert.equal(grouped[0].items.length, 1)
+    assert.equal(grouped[0].items[0].repository.path, 'pinned-repo')
+  })
+
+  it('shows pinned repositories in both the pinned group and their original group', () => {
+    const pinnedDotComRepo = new Repository(
+      'pinned-dotcom',
+      4,
+      gitHubRepoFixture({ owner: 'me', name: 'pinned-dotcom' }),
+      false,
+      null,
+      {},
+      false,
+      undefined,
+      true
+    )
+    const grouped = groupRepositories(
+      [...repositories, pinnedDotComRepo],
+      cache,
+      []
+    )
+
+    const pinnedGroup = grouped.find(g => g.identifier.kind === 'pinned')
+    const dotComGroup = grouped.find(g => g.identifier.kind === 'dotcom')
+
+    assert(pinnedGroup !== undefined)
+    assert(dotComGroup !== undefined)
+    assert(pinnedGroup.items.some(i => i.repository.path === 'pinned-dotcom'))
+    assert(dotComGroup.items.some(i => i.repository.path === 'pinned-dotcom'))
+  })
+
+  it('orders the pinned group before the recent group', () => {
+    // 9 个仓库超过阈值 7，Recent 组显示
+    const many = [
+      new Repository('r1', 1, null, false),
+      new Repository('r2', 2, null, false),
+      new Repository('r3', 3, null, false),
+      new Repository('r4', 4, null, false),
+      new Repository('r5', 5, null, false),
+      new Repository('r6', 6, null, false),
+      new Repository('r7', 7, null, false),
+      new Repository('r8', 8, null, false),
+      new Repository('r9', 9, null, false, null, {}, false, undefined, true),
+    ]
+    const grouped = groupRepositories(many, cache, [1])
+
+    assert.equal(grouped[0].identifier.kind, 'pinned')
+    assert.equal(grouped[1].identifier.kind, 'recent')
+    assert.equal(grouped[0].items[0].repository.path, 'r9')
+    assert.equal(grouped[1].items[0].repository.path, 'r1')
+  })
+
+  it('disambiguates pinned repositories with duplicate names', () => {
+    const repoA = new Repository(
+      'dup',
+      1,
+      gitHubRepoFixture({ owner: 'user1', name: 'dup' }),
+      false,
+      null,
+      {},
+      false,
+      undefined,
+      true
+    )
+    const repoB = new Repository(
+      'dup',
+      2,
+      gitHubRepoFixture({ owner: 'user2', name: 'dup' }),
+      false
+    )
+    const grouped = groupRepositories([repoA, repoB], cache, [])
+
+    const pinnedGroup = grouped.find(g => g.identifier.kind === 'pinned')
+    assert(pinnedGroup !== undefined)
+    assert.equal(pinnedGroup.items.length, 1)
+    assert(pinnedGroup.items[0].needsDisambiguation)
+  })
 })

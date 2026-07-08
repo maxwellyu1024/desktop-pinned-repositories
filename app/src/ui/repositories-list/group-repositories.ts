@@ -16,7 +16,7 @@ import { Owner } from '../../models/owner'
 
 export type RepositoryListGroup =
   | {
-      kind: 'recent' | 'other'
+      kind: 'pinned' | 'recent' | 'other'
     }
   | {
       kind: 'dotcom'
@@ -35,14 +35,16 @@ export type RepositoryListGroup =
 export const getGroupKey = (group: RepositoryListGroup) => {
   const { kind } = group
   switch (kind) {
+    case 'pinned':
+      return `0:pinned`
     case 'recent':
-      return `0:recent`
+      return `1:recent`
     case 'dotcom':
-      return `1:dotcom:${group.owner.login}`
+      return `2:dotcom:${group.owner.login}`
     case 'enterprise':
-      return `2:enterprise:${group.host}`
+      return `3:enterprise:${group.host}`
     case 'other':
-      return `3:other`
+      return `4:other`
     default:
       assertNever(group, `Unknown repository group kind ${kind}`)
   }
@@ -95,6 +97,10 @@ export function groupRepositories(
   }
 
   for (const repo of repositories) {
+    if (repo instanceof Repository && repo.isPinned) {
+      addToGroup({ kind: 'pinned' }, repo)
+    }
+
     if (recentSet?.has(repo.id) && repo instanceof Repository) {
       addToGroup({ kind: 'recent' }, repo)
     }
@@ -130,9 +136,12 @@ const toSortedListItems = (
   const allNames = new Map<string, number>()
 
   for (const groupItem of groups.values()) {
-    // All items in the recent group are by definition present in another
-    // group and therefore we don't want to count them.
-    if (groupItem.group.kind === 'recent') {
+    // All items in the recent and pinned groups are by definition present in
+    // another group and therefore we don't want to count them.
+    if (
+      groupItem.group.kind === 'recent' ||
+      groupItem.group.kind === 'pinned'
+    ) {
       continue
     }
 
@@ -157,11 +166,12 @@ const toSortedListItems = (
           // If the repository is in the enterprise group and has a duplicate
           // name in the group, we need to disambiguate it. We don't have to
           // disambiguate repositories in the 'dotcom' group because they are
-          // already grouped by owner. If the repository is in the 'recent'
-          // group and has a duplicate name in any group, we need to
+          // already grouped by owner. If the repository is in the 'recent' or
+          // 'pinned' group and has a duplicate name in any group, we need to
           // disambiguate it.
           ((groupNames.get(title) ?? 0) > 1 && group.kind === 'enterprise') ||
-          ((allNames.get(title) ?? 0) > 1 && group.kind === 'recent'),
+          ((allNames.get(title) ?? 0) > 1 &&
+            (group.kind === 'recent' || group.kind === 'pinned')),
         aheadBehind: repoState?.aheadBehind ?? null,
         changedFilesCount: repoState?.changedFilesCount ?? 0,
       }
