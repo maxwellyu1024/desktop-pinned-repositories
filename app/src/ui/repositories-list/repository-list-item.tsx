@@ -97,6 +97,10 @@ export class RepositoryListItem extends React.Component<
     return (
       <button
         type="button"
+        // 行内容包裹层为 aria-hidden（list-row.tsx 对有 ariaLabel 的行），
+        // 可聚焦元素在其中会触发 axe aria-hidden-focus 违规，故移出 Tab 序；
+        // 键盘/屏幕阅读器的固定操作路径是右键菜单
+        tabIndex={-1}
         className={classNames('pin-button', {
           pinned: repository.isPinned,
         })}
