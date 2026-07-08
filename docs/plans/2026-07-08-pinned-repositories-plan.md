@@ -32,7 +32,7 @@
 **Interfaces:**
 - Produces: `Repository.isPinned: boolean`（构造函数第 9 个参数，默认 `false`，参与 hash）；`RepositoriesStore.updateRepositoryPinned(repository: Repository, isPinned: boolean): Promise<void>`
 
-- [ ] **Step 1: `IDatabaseRepository` 增加字段**
+- [x] **Step 1: `IDatabaseRepository` 增加字段**
 
 在 `app/src/lib/databases/repositories-database.ts` 的 `IDatabaseRepository` 接口中（`alias` 字段之后）增加：
 
@@ -41,7 +41,7 @@
   readonly isPinned?: boolean
 ```
 
-- [ ] **Step 2: `Repository` 构造函数增加参数并纳入 hash**
+- [x] **Step 2: `Repository` 构造函数增加参数并纳入 hash**
 
 `app/src/models/repository.ts`，构造函数末尾（`gitDir` 参数之后）增加参数：
 
@@ -67,7 +67,7 @@
     )
 ```
 
-- [ ] **Step 3: `repositories-store.ts` 的 6 处 `new Repository(...)` 补传 `isPinned`**
+- [x] **Step 3: `repositories-store.ts` 的 6 处 `new Repository(...)` 补传 `isPinned`**
 
 行号（修改前）：146、288、309、366、413、562。
 
@@ -109,7 +109,7 @@
 
 注意：`app/src/lib/desktop-fake-repository.ts` 和 `app/src/ui/lib/test-ui-components/test-ui-components.ts` 中的 `new Repository(...)` 使用默认值即可，不需要修改。
 
-- [ ] **Step 4: 新增 `updateRepositoryPinned` 方法**
+- [x] **Step 4: 新增 `updateRepositoryPinned` 方法**
 
 `app/src/lib/stores/repositories-store.ts`，紧跟 `updateRepositoryAlias`（327-334 行）之后：
 
@@ -130,7 +130,7 @@
   }
 ```
 
-- [ ] **Step 5: 类型检查与现有测试**
+- [x] **Step 5: 类型检查与现有测试**
 
 ```powershell
 npx tsc -P app --noEmit
@@ -139,7 +139,7 @@ yarn test app/test/unit/repositories-list-grouping-test.ts
 
 预期：tsc 无错误；现有 3 个分组测试全部 PASS。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add app/src/lib/databases/repositories-database.ts app/src/models/repository.ts app/src/lib/stores/repositories-store.ts
@@ -158,7 +158,7 @@ git commit -m "feat: Repository 模型与数据库增加 isPinned 字段"
 - Consumes: `Repository.isPinned`（Task 1）；`new Repository(path, id, ghRepo, missing, alias, workflowPreferences, isTutorialRepository, gitDir, isPinned)`
 - Produces: `RepositoryListGroup` 联合类型新增 `kind: 'pinned'`；`getGroupKey({kind:'pinned'})` 返回 `'0:pinned'`；`groupRepositories` 签名不变（isPinned 从 Repository 对象读取，无需新参数）
 
-- [ ] **Step 1: 编写失败的测试**
+- [x] **Step 1: 编写失败的测试**
 
 在 `app/test/unit/repositories-list-grouping-test.ts` 的 `describe` 块末尾追加：
 
@@ -283,7 +283,7 @@ git commit -m "feat: Repository 模型与数据库增加 isPinned 字段"
   })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 ```powershell
 yarn test app/test/unit/repositories-list-grouping-test.ts
@@ -291,7 +291,7 @@ yarn test app/test/unit/repositories-list-grouping-test.ts
 
 预期：新增 5 个测试中，`includes isPinned in the repository hash` PASS（Task 1 已实现），其余 4 个 FAIL（尚无 `pinned` 分组）。
 
-- [ ] **Step 3: 实现分组逻辑**
+- [x] **Step 3: 实现分组逻辑**
 
 `app/src/ui/repositories-list/group-repositories.ts` 四处修改：
 
@@ -373,7 +373,7 @@ export const getGroupKey = (group: RepositoryListGroup) => {
             (group.kind === 'recent' || group.kind === 'pinned')),
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 ```powershell
 yarn test app/test/unit/repositories-list-grouping-test.ts
@@ -381,7 +381,7 @@ yarn test app/test/unit/repositories-list-grouping-test.ts
 
 预期：全部 8 个测试 PASS（3 个原有 + 5 个新增）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add app/src/ui/repositories-list/group-repositories.ts app/test/unit/repositories-list-grouping-test.ts
@@ -400,7 +400,7 @@ git commit -m "feat: 仓库列表增加 pinned 分组逻辑"
 - Consumes: `RepositoriesStore.updateRepositoryPinned`（Task 1）
 - Produces: `Dispatcher.changeRepositoryPinned(repository: Repository, isPinned: boolean): Promise<void>`
 
-- [ ] **Step 1: app-store 增加方法**
+- [x] **Step 1: app-store 增加方法**
 
 `app/src/lib/stores/app-store.ts`，紧跟 `_changeRepositoryAlias` 之后：
 
@@ -414,7 +414,7 @@ git commit -m "feat: 仓库列表增加 pinned 分组逻辑"
   }
 ```
 
-- [ ] **Step 2: dispatcher 增加方法**
+- [x] **Step 2: dispatcher 增加方法**
 
 `app/src/ui/dispatcher/dispatcher.ts`，紧跟 `changeRepositoryAlias` 之后：
 
@@ -428,7 +428,7 @@ git commit -m "feat: 仓库列表增加 pinned 分组逻辑"
   }
 ```
 
-- [ ] **Step 3: 类型检查**
+- [x] **Step 3: 类型检查**
 
 ```powershell
 npx tsc -P app --noEmit
@@ -436,7 +436,7 @@ npx tsc -P app --noEmit
 
 预期：无错误。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 git add app/src/lib/stores/app-store.ts app/src/ui/dispatcher/dispatcher.ts
@@ -456,7 +456,7 @@ git commit -m "feat: dispatcher/app-store 增加 changeRepositoryPinned"
 - Consumes: `Dispatcher.changeRepositoryPinned`（Task 3）、`octicons.pin`（已存在于 `octicons.generated.ts`）
 - Produces: `IRepositoryListItemProps.onTogglePin?: (repository: Repository) => void`
 
-- [ ] **Step 1: 列表项增加图钉按钮**
+- [x] **Step 1: 列表项增加图钉按钮**
 
 `app/src/ui/repositories-list/repository-list-item.tsx`：
 
@@ -523,7 +523,7 @@ git commit -m "feat: dispatcher/app-store 增加 changeRepositoryPinned"
   }
 ```
 
-- [ ] **Step 2: 列表组件接线**
+- [x] **Step 2: 列表组件接线**
 
 `app/src/ui/repositories-list/repositories-list.tsx`：
 
@@ -564,7 +564,7 @@ git commit -m "feat: dispatcher/app-store 增加 changeRepositoryPinned"
   }
 ```
 
-- [ ] **Step 3: 样式**
+- [x] **Step 3: 样式**
 
 `app/styles/ui/_repository-list.scss`，`.repository-list-item` 规则块内（`.alias` 之后）增加：
 
@@ -600,7 +600,7 @@ git commit -m "feat: dispatcher/app-store 增加 changeRepositoryPinned"
     }
 ```
 
-- [ ] **Step 4: 类型检查与 lint**
+- [x] **Step 4: 类型检查与 lint**
 
 ```powershell
 npx tsc -P app --noEmit
@@ -609,7 +609,7 @@ yarn prettier
 
 预期：均无错误。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add app/src/ui/repositories-list/repository-list-item.tsx app/src/ui/repositories-list/repositories-list.tsx app/styles/ui/_repository-list.scss
@@ -628,7 +628,7 @@ git commit -m "feat: 仓库列表项增加图钉按钮与 Pinned 分组标题"
 - Consumes: Task 4 的 `onTogglePin`（repositories-list.tsx 中已有同名私有方法，直接复用）
 - Produces: `IRepositoryListItemContextMenuConfig.onTogglePinRepository: (repository: Repository) => void`
 
-- [ ] **Step 1: 菜单生成器增加配置与菜单项**
+- [x] **Step 1: 菜单生成器增加配置与菜单项**
 
 `app/src/ui/repositories-list/repository-list-item-context-menu.ts`：
 
@@ -673,7 +673,7 @@ const buildPinMenuItems = (
 }
 ```
 
-- [ ] **Step 2: 调用点接线**
+- [x] **Step 2: 调用点接线**
 
 `app/src/ui/repositories-list/repositories-list.tsx` 的 `onItemContextMenu` 中，`generateRepositoryListContextMenu({...})` 配置对象增加一行（`onRemoveRepositoryAlias` 之后）：
 
@@ -681,7 +681,7 @@ const buildPinMenuItems = (
       onTogglePinRepository: this.onTogglePin,
 ```
 
-- [ ] **Step 3: 类型检查与全量单测**
+- [x] **Step 3: 类型检查与全量单测**
 
 ```powershell
 npx tsc -P app --noEmit
@@ -690,7 +690,7 @@ yarn test app/test/unit/repositories-list-grouping-test.ts
 
 预期：均通过。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 git add app/src/ui/repositories-list/repository-list-item-context-menu.ts app/src/ui/repositories-list/repositories-list.tsx
@@ -703,7 +703,7 @@ git commit -m "feat: 仓库右键菜单增加 Pin/Unpin 菜单项"
 
 **Files:** 无新增修改（验证任务；发现问题则回到对应 Task 修复）
 
-- [ ] **Step 1: 全量单元测试与 lint**
+- [x] **Step 1: 全量单元测试与 lint**
 
 ```powershell
 yarn test
@@ -712,7 +712,7 @@ yarn lint
 
 预期：全部通过（运行时间较长，注意 lint 含 prettier 与 eslint）。
 
-- [ ] **Step 2: 启动应用手动验证**
+- [x] **Step 2: 启动应用手动验证**
 
 ```powershell
 yarn start
@@ -728,11 +728,11 @@ yarn start
 7. 过滤框输入文字 → Pinned 组正常参与过滤
 8. 仓库总数 ≤ 7 时（可用测试数据目录验证或跳过）Pinned 组仍显示
 
-- [ ] **Step 3: 修复验证中发现的问题并补交**
+- [x] **Step 3: 修复验证中发现的问题并补交**
 
 若有问题：定位到对应 Task 的文件，修复后重跑该 Task 的验证步骤，单独 commit。
 
-- [ ] **Step 4: 最终提交计划文档勾选状态**
+- [x] **Step 4: 最终提交计划文档勾选状态**
 
 ```powershell
 git add docs/plans/2026-07-08-pinned-repositories-plan.md
