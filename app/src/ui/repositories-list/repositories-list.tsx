@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { Shell } from '../../lib/shells'
 
 import { commitGrammar, RepositoryListItem } from './repository-list-item'
 import {
@@ -66,7 +67,22 @@ interface IRepositoriesListProps {
   readonly externalEditorLabel?: string
 
   /** The label for the user's preferred shell. */
-  readonly shellLabel?: string
+  readonly shellLabel?: Shell
+
+  /** All editors installed on the user's machine */
+  readonly availableExternalEditors: ReadonlyArray<string>
+
+  /** All shells installed on the user's machine */
+  readonly availableShells: ReadonlyArray<Shell>
+
+  /** Called when the repository should be opened in the given shell */
+  readonly onOpenInSelectedShell: (repository: Repository, shell: Shell) => void
+
+  /** Called when the repository should be opened in the given editor */
+  readonly onOpenInSelectedExternalEditor: (
+    repository: Repository,
+    editor: string
+  ) => void
 
   /** The callback to fire when the filter text has changed */
   readonly onFilterTextChanged: (text: string) => void
@@ -295,6 +311,12 @@ export class RepositoriesList extends React.Component<
       onShowRepository: this.props.onShowRepository,
       onOpenInShell: this.props.onOpenInShell,
       onOpenInExternalEditor: this.props.onOpenInExternalEditor,
+      onOpenInSelectedShell: this.props.onOpenInSelectedShell,
+      onOpenInSelectedExternalEditor: this.props.onOpenInSelectedExternalEditor,
+      selectedExternalEditor: this.props.externalEditorLabel ?? null,
+      availableExternalEditors: this.props.availableExternalEditors,
+      selectedShell: this.props.shellLabel ?? null,
+      availableShells: this.props.availableShells,
       askForConfirmationOnRemoveRepository:
         this.props.askForConfirmationOnRemoveRepository,
       externalEditorLabel: this.props.externalEditorLabel,

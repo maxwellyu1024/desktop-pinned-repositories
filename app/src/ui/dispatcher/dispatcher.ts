@@ -1663,6 +1663,11 @@ export class Dispatcher {
   /**
    * Opens a path in a selected external editor without changing preferences.
    */
+  /** Open a path using the given shell without changing preferences. */
+  public openInSelectedShell(path: string, shell: Shell): Promise<void> {
+    return this.appStore._openInSelectedShell(path, shell)
+  }
+
   public async openInSelectedExternalEditor(
     fullPath: string,
     selectedEditor: string | null,

@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { Shell } from '../lib/shells'
 import * as Path from 'path'
 
 import { TransitionGroup, CSSTransition } from 'react-transition-group'
@@ -3392,6 +3393,10 @@ export class App extends React.Component<IAppProps, IAppState> {
         onOpenInExternalEditor={this.openInExternalEditor}
         externalEditorLabel={this.externalEditorLabel}
         shellLabel={useCustomShell ? undefined : selectedShell}
+        availableExternalEditors={this.state.availableExternalEditors}
+        availableShells={this.state.availableShells}
+        onOpenInSelectedShell={this.openInSelectedShell}
+        onOpenInSelectedExternalEditor={this.openInSelectedExternalEditor}
         dispatcher={this.props.dispatcher}
       />
     )
@@ -3431,6 +3436,21 @@ export class App extends React.Component<IAppProps, IAppState> {
     }
 
     this.props.dispatcher.openInExternalEditor(repository.path)
+  }
+
+  private openInSelectedShell = (repository: Repository, shell: Shell) => {
+    this.props.dispatcher.openInSelectedShell(repository.path, shell)
+  }
+
+  private openInSelectedExternalEditor = (
+    repository: Repository,
+    editor: string
+  ) => {
+    this.props.dispatcher.openInSelectedExternalEditor(
+      repository.path,
+      editor,
+      null
+    )
   }
 
   private openRepositoryInSelectedEditor = async (
@@ -3590,6 +3610,14 @@ export class App extends React.Component<IAppProps, IAppState> {
       onShowRepository: this.showRepository,
       onOpenInShell: this.openInShell,
       onOpenInExternalEditor: this.openInExternalEditor,
+      onOpenInSelectedShell: this.openInSelectedShell,
+      onOpenInSelectedExternalEditor: this.openInSelectedExternalEditor,
+      selectedExternalEditor: this.externalEditorLabel ?? null,
+      availableExternalEditors: this.state.availableExternalEditors,
+      selectedShell: this.state.useCustomShell
+        ? null
+        : this.state.selectedShell,
+      availableShells: this.state.availableShells,
       askForConfirmationOnRemoveRepository:
         this.state.askForConfirmationOnRepositoryRemoval,
       externalEditorLabel: this.externalEditorLabel,

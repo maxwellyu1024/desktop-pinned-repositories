@@ -287,6 +287,9 @@ export interface IAppState {
    */
   readonly resolvedExternalEditor: string | null
 
+  /** The names of all external editors found on the user's machine */
+  readonly availableExternalEditors: ReadonlyArray<string>
+
   /** What type of visual diff mode we should use to compare images */
   readonly imageDiffType: ImageDiffType
 
@@ -304,6 +307,9 @@ export interface IAppState {
 
   /** The user's preferred shell. */
   readonly selectedShell: Shell
+
+  /** All shells found on the user's machine */
+  readonly availableShells: ReadonlyArray<Shell>
 
   /** The current repository filter text. */
   readonly repositoryFilterText: string

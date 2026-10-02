@@ -1,6 +1,7 @@
 import { Repository } from '../../models/repository'
 import { IMenuItem } from '../../lib/menu-item'
 import { Repositoryish } from './group-repositories'
+import { Shell } from '../../lib/shells'
 import { writeClipboardText } from '../main-process-proxy'
 import {
   RevealInFileManagerLabel,
@@ -12,11 +13,24 @@ interface IRepositoryListItemContextMenuConfig {
   repository: Repositoryish
   shellLabel: string | undefined
   externalEditorLabel: string | undefined
+  /** The configured editor, marked in the editor submenu; null if custom */
+  selectedExternalEditor: string | null
+  /** All editors installed on the user's machine */
+  availableExternalEditors: ReadonlyArray<string>
+  /** The configured shell, marked in the shell submenu; null if custom */
+  selectedShell: Shell | null
+  /** All shells installed on the user's machine */
+  availableShells: ReadonlyArray<Shell>
   askForConfirmationOnRemoveRepository: boolean
   onViewOnGitHub: (repository: Repositoryish) => void
   onOpenInShell: (repository: Repositoryish) => void
   onShowRepository: (repository: Repositoryish) => void
   onOpenInExternalEditor: (repository: Repositoryish) => void
+  onOpenInSelectedShell: (repository: Repository, shell: Shell) => void
+  onOpenInSelectedExternalEditor: (
+    repository: Repository,
+    editor: string
+  ) => void
   onRemoveRepository: (repository: Repositoryish) => void
   onChangeRepositoryAlias: (repository: Repository) => void
   onRemoveRepositoryAlias: (repository: Repository) => void
@@ -62,6 +76,7 @@ export const generateRepositoryListContextMenu = (
       action: () => config.onOpenInShell(repository),
       enabled: !missing,
     },
+    ...buildShellSubmenuItems(config),
     {
       label: RevealInFileManagerLabel,
       action: () => config.onShowRepository(repository),
@@ -72,6 +87,7 @@ export const generateRepositoryListContextMenu = (
       action: () => config.onOpenInExternalEditor(repository),
       enabled: !missing,
     },
+    ...buildEditorSubmenuItems(config),
     { type: 'separator' },
     {
       label: config.askForConfirmationOnRemoveRepository ? 'Remove…' : 'Remove',
@@ -162,6 +178,66 @@ const buildPinMenuItems = (
     {
       label,
       action: () => config.onTogglePinRepository(repository),
+    },
+  ]
+}
+
+/**
+ * Builds a submenu offering every installed shell. Only shown when there is
+ * more than one to choose from, since the configured shell already has its own
+ * menu item.
+ */
+const buildShellSubmenuItems = (
+  config: IRepositoryListItemContextMenuConfig
+): ReadonlyArray<IMenuItem> => {
+  const { repository, availableShells, selectedShell } = config
+
+  if (!(repository instanceof Repository) || availableShells.length < 2) {
+    return []
+  }
+
+  return [
+    {
+      label: __DARWIN__ ? 'Open With Terminal' : 'Open with terminal',
+      enabled: !repository.missing,
+      submenu: availableShells.map(shell => ({
+        label: shell,
+        type: 'checkbox' as const,
+        checked: shell === selectedShell,
+        action: () => config.onOpenInSelectedShell(repository, shell),
+      })),
+    },
+  ]
+}
+
+/**
+ * Builds a submenu offering every installed editor. Only shown when there is
+ * more than one to choose from, since the configured editor already has its
+ * own menu item.
+ */
+const buildEditorSubmenuItems = (
+  config: IRepositoryListItemContextMenuConfig
+): ReadonlyArray<IMenuItem> => {
+  const { repository, availableExternalEditors, selectedExternalEditor } =
+    config
+
+  if (
+    !(repository instanceof Repository) ||
+    availableExternalEditors.length < 2
+  ) {
+    return []
+  }
+
+  return [
+    {
+      label: __DARWIN__ ? 'Open With Editor' : 'Open with editor',
+      enabled: !repository.missing,
+      submenu: availableExternalEditors.map(editor => ({
+        label: editor,
+        type: 'checkbox' as const,
+        checked: editor === selectedExternalEditor,
+        action: () => config.onOpenInSelectedExternalEditor(repository, editor),
+      })),
     },
   ]
 }

@@ -263,10 +263,12 @@ import { RetryAction, RetryActionType } from '../../models/retry-actions'
 import {
   Default as DefaultShell,
   findShellOrDefault,
+  getAvailableShells,
   launchCustomShell,
   launchShell,
   parse as parseShell,
   Shell,
+  ShellError,
 } from '../shells'
 import { ILaunchStats, StatsStore } from '../stats'
 import { hasShownWelcomeFlow, markWelcomeFlowComplete } from '../welcome'
@@ -687,9 +689,11 @@ export class AppStore extends TypedBaseStore<IAppState> {
   private selectedExternalEditor: string | null = null
 
   private resolvedExternalEditor: string | null = null
+  private availableExternalEditors: ReadonlyArray<string> = []
 
   /** The user's preferred shell. */
   private selectedShell: Shell = DefaultShell
+  private availableShells: ReadonlyArray<Shell> = []
 
   /** The current repository filter text */
   private repositoryFilterText: string = ''
@@ -1331,8 +1335,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
       hideWhitespaceInPullRequestDiff: this.hideWhitespaceInPullRequestDiff,
       showSideBySideDiff: this.showSideBySideDiff,
       selectedShell: this.selectedShell,
+      availableShells: this.availableShells,
       repositoryFilterText: this.repositoryFilterText,
       resolvedExternalEditor: this.resolvedExternalEditor,
+      availableExternalEditors: this.availableExternalEditors,
       selectedCloneRepositoryTab: this.selectedCloneRepositoryTab,
       selectedBranchesTab: this.selectedBranchesTab,
       selectedTheme: this.selectedTheme,
@@ -2558,6 +2564,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
     const shellValue = localStorage.getItem(shellKey)
     this.selectedShell = shellValue ? parseShell(shellValue) : DefaultShell
 
+    this.loadAvailableIntegrations().catch(e =>
+      log.error('Failed looking up available editors and shells', e)
+    )
+
     this.updateMenuLabelsForSelectedRepository()
 
     const imageDiffTypeValue = localStorage.getItem(imageDiffTypeKey)
@@ -2840,6 +2850,21 @@ export class AppStore extends TypedBaseStore<IAppState> {
     // Make sure we keep the resolved (cached) editor
     // in sync when the user changes their editor choice.
     return this._resolveCurrentEditor()
+  }
+
+  /**
+   * Look up every editor and shell installed on the user's machine so they can
+   * be offered alongside the configured ones.
+   */
+  private async loadAvailableIntegrations(): Promise<void> {
+    const [editors, shells] = await Promise.all([
+      getAvailableEditors(),
+      getAvailableShells(),
+    ])
+
+    this.availableExternalEditors = editors.map(found => found.editor)
+    this.availableShells = shells.map(found => found.shell)
+    this.emitUpdate()
   }
 
   private async lookupSelectedExternalEditor(): Promise<string | null> {
@@ -7659,6 +7684,25 @@ export class AppStore extends TypedBaseStore<IAppState> {
         const match = await findShellOrDefault(this.selectedShell)
         await launchShell(match, path, error => this._pushError(error))
       }
+    } catch (error) {
+      this.emitError(error)
+    }
+  }
+
+  /** Open a path using the given shell without changing preferences. */
+  public async _openInSelectedShell(path: string, selectedShell: Shell) {
+    this.statsStore.increment('openShellCount')
+
+    try {
+      const available = await getAvailableShells()
+      const match = available.find(s => s.shell === selectedShell)
+      if (match === undefined) {
+        throw new ShellError(
+          `Could not find the shell '${selectedShell}'. It may have been uninstalled.`
+        )
+      }
+
+      await launchShell(match, path, error => this._pushError(error))
     } catch (error) {
       this.emitError(error)
     }
