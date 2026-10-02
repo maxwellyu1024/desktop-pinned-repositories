@@ -285,6 +285,31 @@ describe('repository list grouping', () => {
     assert(pinnedGroup.items[0].needsDisambiguation)
   })
 
+  it('passes the current branch of each repository to its items', () => {
+    const lookup = new Map<number, ILocalRepositoryState>([
+      [1, { aheadBehind: null, changedFilesCount: 0, currentBranch: 'main' }],
+      [2, { aheadBehind: null, changedFilesCount: 0, currentBranch: null }],
+    ])
+    const grouped = groupRepositories(
+      [
+        new Repository('alpha', 1, null, false),
+        new Repository('bravo', 2, null, false),
+        new Repository('charlie', 3, null, false),
+      ],
+      lookup,
+      []
+    )
+
+    assert.deepEqual(
+      grouped[0].items.map(i => [i.repository.name, i.currentBranch]),
+      [
+        ['alpha', 'main'],
+        ['bravo', null],
+        ['charlie', null],
+      ]
+    )
+  })
+
   it('orders the pinned group by pin order instead of name', () => {
     const grouped = groupRepositories(
       [

@@ -185,6 +185,7 @@ export class RepositoriesList extends React.Component<
         matches={matches}
         aheadBehind={item.aheadBehind}
         changedFilesCount={item.changedFilesCount}
+        currentBranch={item.currentBranch}
         onTogglePin={this.onTogglePin}
         isDraggable={
           item.group.kind === 'pinned' && this.canReorderPinnedRepositories()
@@ -268,7 +269,7 @@ export class RepositoriesList extends React.Component<
   private renderRowFocusTooltip = (
     item: IRepositoryListItem
   ): JSX.Element | string | null => {
-    const { repository, aheadBehind, changedFilesCount } = item
+    const { repository, aheadBehind, changedFilesCount, currentBranch } = item
     const gitHubRepo =
       repository instanceof Repository ? repository.gitHubRepository : null
     const alias = repository instanceof Repository ? repository.alias : null
@@ -293,6 +294,12 @@ export class RepositoriesList extends React.Component<
           <div className="label">Path: </div>
           {repository.path}
         </div>
+        {currentBranch !== null && (
+          <div>
+            <div className="label">Branch: </div>
+            {currentBranch}
+          </div>
+        )}
         {aheadBehindTooltip && (
           <div>
             <div className="label">

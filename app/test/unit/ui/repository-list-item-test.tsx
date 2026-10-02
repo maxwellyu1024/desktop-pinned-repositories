@@ -48,6 +48,7 @@ describe('RepositoryListItem', () => {
         matches={noMatches}
         aheadBehind={{ ahead: 2, behind: 1 }}
         changedFilesCount={3}
+        currentBranch="main"
       />
     )
 
@@ -58,6 +59,10 @@ describe('RepositoryListItem', () => {
     )
 
     assert.equal(name?.textContent, 'desktop')
+    assert.equal(
+      view.container.querySelector('.branch-name')?.textContent,
+      'main'
+    )
     assert.notEqual(aheadBehind, null)
     assert.notEqual(changeIndicator, null)
     assert.equal(aheadBehind?.querySelectorAll('svg').length, 2)
@@ -72,6 +77,7 @@ describe('RepositoryListItem', () => {
         matches={noMatches}
         aheadBehind={null}
         changedFilesCount={0}
+        currentBranch={null}
       />
     )
 
@@ -80,6 +86,7 @@ describe('RepositoryListItem', () => {
 
     assert.equal(prefix?.textContent, 'octocat/')
     assert.equal(name?.textContent, 'octocat/desktop-app')
+    assert.equal(view.container.querySelector('.branch-name'), null)
   })
 
   it('shows tooltip content for the repository full name, alias, and path', async () => {
@@ -91,6 +98,7 @@ describe('RepositoryListItem', () => {
         matches={noMatches}
         aheadBehind={null}
         changedFilesCount={0}
+        currentBranch="feature/tooltip"
       />
     )
 
@@ -109,6 +117,7 @@ describe('RepositoryListItem', () => {
     await waitFor(() => {
       assert.ok(screen.getByText('octocat/desktop', { selector: 'strong' }))
       assert.ok(screen.getByText(fixtureRepositoryPath))
+      assert.ok(screen.getByText('Branch: feature/tooltip'))
     })
   })
 })

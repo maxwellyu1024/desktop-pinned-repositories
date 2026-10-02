@@ -31,6 +31,9 @@ interface IRepositoryListItemProps {
   /** Number of uncommitted changes */
   readonly changedFilesCount: number
 
+  /** The currently checked out branch, null when detached or unknown */
+  readonly currentBranch: string | null
+
   /** Called when the user clicks the pin button. Not rendered when absent. */
   readonly onTogglePin?: (repository: Repository) => void
 
@@ -99,6 +102,10 @@ export class RepositoryListItem extends React.Component<
               highlight={this.props.matches.title}
             />
           </div>
+
+          {this.props.currentBranch !== null && (
+            <span className="branch-name">{this.props.currentBranch}</span>
+          )}
 
           {repository instanceof Repository &&
             renderRepoIndicators({
@@ -196,6 +203,9 @@ export class RepositoryListItem extends React.Component<
           {alias && <> ({alias})</>}
         </div>
         <div>{repo.path}</div>
+        {this.props.currentBranch !== null && (
+          <div>Branch: {this.props.currentBranch}</div>
+        )}
       </>
     )
   }
@@ -208,7 +218,8 @@ export class RepositoryListItem extends React.Component<
       return (
         nextProps.repository.hash !== this.props.repository.hash ||
         nextProps.matches !== this.props.matches ||
-        nextProps.isDraggable !== this.props.isDraggable
+        nextProps.isDraggable !== this.props.isDraggable ||
+        nextProps.currentBranch !== this.props.currentBranch
       )
     } else {
       return true
