@@ -5051,6 +5051,13 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */
+  public async _reorderPinnedRepositories(
+    repositories: ReadonlyArray<Repository>
+  ): Promise<void> {
+    return this.repositoriesStore.updatePinnedRepositoriesOrder(repositories)
+  }
+
+  /** This shouldn't be called directly. See `Dispatcher`. */
   public async _renameBranch(
     repository: Repository,
     branch: Branch,

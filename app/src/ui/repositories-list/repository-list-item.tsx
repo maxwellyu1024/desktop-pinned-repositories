@@ -12,6 +12,9 @@ import { createObservableRef } from '../lib/observable-ref'
 import { Tooltip } from '../lib/tooltip'
 import { enableAccessibleListToolTips } from '../../lib/feature-flag'
 import { TooltippedContent } from '../lib/tooltipped-content'
+import { Draggable } from '../lib/draggable'
+import { dragAndDropManager } from '../../lib/drag-and-drop-manager'
+import { DragType, DropTargetSelector } from '../../models/drag-drop'
 
 interface IRepositoryListItemProps {
   readonly repository: Repositoryish
@@ -30,6 +33,15 @@ interface IRepositoryListItemProps {
 
   /** Called when the user clicks the pin button. Not rendered when absent. */
   readonly onTogglePin?: (repository: Repository) => void
+
+  /** Whether the item can be dragged to reorder the pinned group */
+  readonly isDraggable?: boolean
+
+  /** Called to render the element following the mouse while dragging */
+  readonly onRenderDragElement?: (repository: Repository) => void
+
+  /** Called to remove the element following the mouse when dragging ends */
+  readonly onRemoveDragElement?: () => void
 }
 
 /** A repository item. */
@@ -58,38 +70,66 @@ export class RepositoryListItem extends React.Component<
     })
 
     return (
-      <div className="repository-list-item" ref={this.listItemRef}>
-        <Tooltip
-          target={this.listItemRef}
-          disabled={enableAccessibleListToolTips()}
-        >
-          {this.renderTooltip()}
-        </Tooltip>
+      <Draggable
+        isEnabled={
+          repository instanceof Repository && this.props.isDraggable === true
+        }
+        onDragStart={this.onDragStart}
+        onRenderDragElement={this.onRenderDragElement}
+        onRemoveDragElement={this.onRemoveDragElement}
+        dropTargetSelectors={[DropTargetSelector.ListInsertionPoint]}
+      >
+        <div className="repository-list-item" ref={this.listItemRef}>
+          <Tooltip
+            target={this.listItemRef}
+            disabled={enableAccessibleListToolTips()}
+          >
+            {this.renderTooltip()}
+          </Tooltip>
 
-        <Octicon
-          className="icon-for-repository"
-          symbol={iconForRepository(repository)}
-        />
-
-        <div className={classNames(classNameList)}>
-          {prefix ? <span className="prefix">{prefix}</span> : null}
-          <HighlightText
-            text={alias ?? repository.name}
-            highlight={this.props.matches.title}
+          <Octicon
+            className="icon-for-repository"
+            symbol={iconForRepository(repository)}
           />
+
+          <div className={classNames(classNameList)}>
+            {prefix ? <span className="prefix">{prefix}</span> : null}
+            <HighlightText
+              text={alias ?? repository.name}
+              highlight={this.props.matches.title}
+            />
+          </div>
+
+          {repository instanceof Repository &&
+            renderRepoIndicators({
+              aheadBehind: this.props.aheadBehind,
+              hasChanges: hasChanges,
+            })}
+
+          {repository instanceof Repository &&
+            this.props.onTogglePin !== undefined &&
+            this.renderPinButton(repository)}
         </div>
-
-        {repository instanceof Repository &&
-          renderRepoIndicators({
-            aheadBehind: this.props.aheadBehind,
-            hasChanges: hasChanges,
-          })}
-
-        {repository instanceof Repository &&
-          this.props.onTogglePin !== undefined &&
-          this.renderPinButton(repository)}
-      </div>
+      </Draggable>
     )
+  }
+
+  private onDragStart = () => {
+    const { repository } = this.props
+    if (repository instanceof Repository) {
+      dragAndDropManager.setDragData({ type: DragType.Repository, repository })
+    }
+  }
+
+  private onRenderDragElement = () => {
+    const { repository } = this.props
+    if (repository instanceof Repository) {
+      this.props.onRenderDragElement?.(repository)
+    }
+  }
+
+  private onRemoveDragElement = () => {
+    this.props.onRemoveDragElement?.()
   }
 
   private renderPinButton(repository: Repository) {
@@ -167,7 +207,8 @@ export class RepositoryListItem extends React.Component<
     ) {
       return (
         nextProps.repository.hash !== this.props.repository.hash ||
-        nextProps.matches !== this.props.matches
+        nextProps.matches !== this.props.matches ||
+        nextProps.isDraggable !== this.props.isDraggable
       )
     } else {
       return true

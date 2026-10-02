@@ -144,6 +144,8 @@ import {
 } from '../lib/get-account-for-repository'
 import { CommitOneLine } from '../models/commit'
 import { CommitDragElement } from './drag-elements/commit-drag-element'
+import { RepositoryDragElement } from './drag-elements/repository-drag-element'
+import { getPinnedRepositories } from './repositories-list/group-repositories'
 import classNames from 'classnames'
 import { MoveToApplicationsFolder } from './move-to-applications-folder'
 import { ChangeRepositoryAlias } from './change-repository-alias/change-repository-alias-dialog'
@@ -3295,21 +3297,24 @@ export class App extends React.Component<IAppProps, IAppState> {
       return null
     }
 
-    const { gitHubRepository, commit, selectedCommits } = currentDragElement
     switch (currentDragElement.type) {
       case DragType.Commit:
         return (
           <CommitDragElement
-            gitHubRepository={gitHubRepository}
-            commit={commit}
-            selectedCommits={selectedCommits}
+            gitHubRepository={currentDragElement.gitHubRepository}
+            commit={currentDragElement.commit}
+            selectedCommits={currentDragElement.selectedCommits}
             emoji={emoji}
             accounts={this.state.accounts}
           />
         )
+      case DragType.Repository:
+        return (
+          <RepositoryDragElement repository={currentDragElement.repository} />
+        )
       default:
         return assertNever(
-          currentDragElement.type,
+          currentDragElement,
           `Unknown drag element type: ${currentDragElement}`
         )
     }
@@ -3605,6 +3610,12 @@ export class App extends React.Component<IAppProps, IAppState> {
       )
     }
 
+    const onReorderPinnedRepositories = (
+      repositories: ReadonlyArray<Repository>
+    ) => {
+      this.props.dispatcher.reorderPinnedRepositories(repositories)
+    }
+
     const items = generateRepositoryListContextMenu({
       onRemoveRepository: this.removeRepository,
       onShowRepository: this.showRepository,
@@ -3624,6 +3635,8 @@ export class App extends React.Component<IAppProps, IAppState> {
       onChangeRepositoryAlias: onChangeRepositoryAlias,
       onRemoveRepositoryAlias: onRemoveRepositoryAlias,
       onTogglePinRepository: onTogglePinRepository,
+      pinnedRepositories: getPinnedRepositories(this.state.repositories),
+      onReorderPinnedRepositories: onReorderPinnedRepositories,
       onViewOnGitHub: this.viewOnGitHub,
       onCreateWorktree: enableWorktreeSupport() ? onCreateWorktree : undefined,
       onShowWorktrees: enableWorktreeSupport() ? onShowWorktrees : undefined,

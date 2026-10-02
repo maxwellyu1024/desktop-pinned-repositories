@@ -55,6 +55,8 @@ export interface IRepositoryListItem extends IFilterListItem {
   readonly text: ReadonlyArray<string>
   readonly id: string
   readonly repository: Repositoryish
+  /** The group of the repository list this item is displayed in */
+  readonly group: RepositoryListGroup
   readonly needsDisambiguation: boolean
   readonly aheadBehind: IAheadBehind | null
   readonly changedFilesCount: number
@@ -126,6 +128,64 @@ export function groupRepositories(
 const getDisplayTitle = (r: Repositoryish) =>
   r instanceof Repository && r.alias != null ? r.alias : r.name
 
+const compareDisplayTitles = (x: Repositoryish, y: Repositoryish) =>
+  caseInsensitiveCompare(getDisplayTitle(x), getDisplayTitle(y))
+
+/**
+ * Compares repositories by their position in the pinned group, falling back
+ * to the display title for repositories with the same position.
+ */
+const comparePinnedRepositories = (x: Repositoryish, y: Repositoryish) => {
+  const xOrder = x instanceof Repository ? x.pinOrder : null
+  const yOrder = y instanceof Repository ? y.pinOrder : null
+  return (
+    (xOrder ?? Infinity) - (yOrder ?? Infinity) || compareDisplayTitles(x, y)
+  )
+}
+
+/** Returns the pinned repositories in the order of the pinned group. */
+export function getPinnedRepositories(
+  repositories: ReadonlyArray<Repositoryish>
+): ReadonlyArray<Repository> {
+  return repositories
+    .filter((r): r is Repository => r instanceof Repository && r.isPinned)
+    .sort(comparePinnedRepositories)
+}
+
+/**
+ * Moves a repository to the given insertion point of the pinned group.
+ *
+ * @param pinnedRepositories  The pinned repositories in their current order.
+ * @param repository          The pinned repository to move.
+ * @param insertionIndex      The position to insert the repository at, from 0
+ *                            (before the first repository) to the number of
+ *                            pinned repositories (after the last one).
+ * @returns The new order, or null if the repository wouldn't move.
+ */
+export function movePinnedRepository(
+  pinnedRepositories: ReadonlyArray<Repository>,
+  repository: Repository,
+  insertionIndex: number
+): ReadonlyArray<Repository> | null {
+  const index = pinnedRepositories.findIndex(r => r.id === repository.id)
+  if (index === -1) {
+    return null
+  }
+
+  // 插入点位于自身之后时，移除自身后插入点前移一位
+  const targetIndex = Math.min(
+    Math.max(insertionIndex > index ? insertionIndex - 1 : insertionIndex, 0),
+    pinnedRepositories.length - 1
+  )
+  if (targetIndex === index) {
+    return null
+  }
+
+  const order = pinnedRepositories.filter(r => r.id !== repository.id)
+  order.splice(targetIndex, 0, pinnedRepositories[index])
+  return order
+}
+
 const toSortedListItems = (
   group: RepositoryListGroup,
   repositories: ReadonlyArray<Repositoryish>,
@@ -162,6 +222,7 @@ const toSortedListItems = (
         text: r instanceof Repository ? [title, nameOf(r)] : [title],
         id: r.id.toString(),
         repository: r,
+        group,
         needsDisambiguation:
           // If the repository is in the enterprise group and has a duplicate
           // name in the group, we need to disambiguate it. We don't have to
@@ -177,6 +238,8 @@ const toSortedListItems = (
       }
     })
     .sort(({ repository: x }, { repository: y }) =>
-      caseInsensitiveCompare(getDisplayTitle(x), getDisplayTitle(y))
+      group.kind === 'pinned'
+        ? comparePinnedRepositories(x, y)
+        : compareDisplayTitles(x, y)
     )
 }

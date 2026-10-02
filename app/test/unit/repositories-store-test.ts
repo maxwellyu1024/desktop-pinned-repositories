@@ -225,4 +225,69 @@ describe('RepositoriesStore', () => {
       assert.equal(reloaded.mainWorktreePath, undefined)
     })
   })
+
+  describe('pinning repositories', () => {
+    const addRepositories = (...paths: ReadonlyArray<string>) =>
+      Promise.all(
+        paths.map(path =>
+          repositoriesStore.addRepository(path, join(path, '.git'))
+        )
+      )
+
+    const pinOrders = async () =>
+      new Map((await repositoriesStore.getAll()).map(r => [r.path, r.pinOrder]))
+
+    it('appends newly pinned repositories to the pinned group', async () => {
+      const [a, b, c] = await addRepositories('/a', '/b', '/c')
+
+      await repositoriesStore.updateRepositoryPinned(c, true)
+      await repositoriesStore.updateRepositoryPinned(a, true)
+
+      assert.deepStrictEqual(
+        await pinOrders(),
+        new Map([
+          ['/a', 1],
+          ['/b', null],
+          ['/c', 0],
+        ])
+      )
+      assert.equal(b.isPinned, false)
+    })
+
+    it('keeps the position of repositories that are already pinned', async () => {
+      const [a, b] = await addRepositories('/a', '/b')
+
+      await repositoriesStore.updateRepositoryPinned(a, true)
+      await repositoriesStore.updateRepositoryPinned(b, true)
+      await repositoriesStore.updateRepositoryPinned(a, true)
+
+      assert.equal((await pinOrders()).get('/a'), 0)
+    })
+
+    it('unpins repositories', async () => {
+      const [a] = await addRepositories('/a')
+
+      await repositoriesStore.updateRepositoryPinned(a, true)
+      await repositoriesStore.updateRepositoryPinned(a, false)
+
+      const [reloaded] = await repositoriesStore.getAll()
+      assert.equal(reloaded.pinOrder, null)
+      assert.equal(reloaded.isPinned, false)
+    })
+
+    it('persists the order of the pinned group', async () => {
+      const [a, b, c] = await addRepositories('/a', '/b', '/c')
+
+      await repositoriesStore.updatePinnedRepositoriesOrder([c, a, b])
+
+      assert.deepStrictEqual(
+        await pinOrders(),
+        new Map([
+          ['/a', 1],
+          ['/b', 2],
+          ['/c', 0],
+        ])
+      )
+    })
+  })
 })

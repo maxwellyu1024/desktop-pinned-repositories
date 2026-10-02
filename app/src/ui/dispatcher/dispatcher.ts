@@ -880,6 +880,17 @@ export class Dispatcher {
     return this.appStore._changeRepositoryPinned(repository, isPinned)
   }
 
+  /**
+   * Reorders the pinned group of the repository list.
+   *
+   * @param repositories  All pinned repositories, in their new order.
+   */
+  public reorderPinnedRepositories(
+    repositories: ReadonlyArray<Repository>
+  ): Promise<void> {
+    return this.appStore._reorderPinnedRepositories(repositories)
+  }
+
   /** Rename the branch to a new name. */
   public renameBranch(
     repository: Repository,

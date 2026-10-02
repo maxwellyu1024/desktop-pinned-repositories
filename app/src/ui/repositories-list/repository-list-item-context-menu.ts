@@ -1,6 +1,6 @@
 import { Repository } from '../../models/repository'
 import { IMenuItem } from '../../lib/menu-item'
-import { Repositoryish } from './group-repositories'
+import { Repositoryish, movePinnedRepository } from './group-repositories'
 import { Shell } from '../../lib/shells'
 import { writeClipboardText } from '../main-process-proxy'
 import {
@@ -35,6 +35,10 @@ interface IRepositoryListItemContextMenuConfig {
   onChangeRepositoryAlias: (repository: Repository) => void
   onRemoveRepositoryAlias: (repository: Repository) => void
   onTogglePinRepository: (repository: Repository) => void
+  /** All pinned repositories, in the order of the pinned group */
+  pinnedRepositories: ReadonlyArray<Repository>
+  /** Called with all pinned repositories in their new order */
+  onReorderPinnedRepositories: (repositories: ReadonlyArray<Repository>) => void
   onCreateWorktree?: (repository: Repository) => void
   onShowWorktrees?: (repository: Repository) => void
 }
@@ -178,6 +182,53 @@ const buildPinMenuItems = (
     {
       label,
       action: () => config.onTogglePinRepository(repository),
+    },
+    ...buildMovePinnedSubmenuItems(config, repository),
+  ]
+}
+
+/**
+ * Builds a submenu moving a pinned repository within the pinned group, the
+ * keyboard accessible alternative to reordering it by dragging.
+ */
+const buildMovePinnedSubmenuItems = (
+  config: IRepositoryListItemContextMenuConfig,
+  repository: Repository
+): ReadonlyArray<IMenuItem> => {
+  const { pinnedRepositories } = config
+  const index = pinnedRepositories.findIndex(r => r.id === repository.id)
+
+  if (index === -1 || pinnedRepositories.length < 2) {
+    return []
+  }
+
+  // 插入点语义与拖拽一致：下移一位需要插入到下一项之后
+  const moves: ReadonlyArray<[string, string, number]> = [
+    ['Move to Top', 'Move to top', 0],
+    ['Move Up', 'Move up', index - 1],
+    ['Move Down', 'Move down', index + 2],
+    ['Move to Bottom', 'Move to bottom', pinnedRepositories.length],
+  ]
+
+  return [
+    {
+      label: __DARWIN__ ? 'Move Pinned Repository' : 'Move pinned repository',
+      submenu: moves.map(([darwinLabel, label, insertionIndex]) => {
+        const order = movePinnedRepository(
+          pinnedRepositories,
+          repository,
+          insertionIndex
+        )
+        return {
+          label: __DARWIN__ ? darwinLabel : label,
+          enabled: order !== null,
+          action: () => {
+            if (order !== null) {
+              config.onReorderPinnedRepositories(order)
+            }
+          },
+        }
+      }),
     },
   ]
 }

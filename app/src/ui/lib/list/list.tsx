@@ -54,10 +54,10 @@ export type ClickSource = IMouseClickSource | IKeyboardSource
  * Represents data that can be inserted/reordered via keyboard, as an alternative
  * method to drag & drop.
  */
-export type KeyboardInsertionData = {
+export type KeyboardInsertionData<T extends DragData = DragData> = {
   /** Indices in the list of the items being reordered, if any. */
   readonly itemIndices: ReadonlyArray<number>
-} & DragData
+} & T
 
 interface IListProps {
   /**

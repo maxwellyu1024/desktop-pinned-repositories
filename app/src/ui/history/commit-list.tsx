@@ -5,14 +5,13 @@ import { Commit, CommitOneLine } from '../../models/commit'
 import { CommitListItem } from './commit-list-item'
 import { KeyboardInsertionData, List } from '../lib/list'
 import { arrayEquals } from '../../lib/equality'
-import { DragData, DragType } from '../../models/drag-drop'
+import { CommitDragData, DragData, DragType } from '../../models/drag-drop'
 import classNames from 'classnames'
 import memoizeOne from 'memoize-one'
 import { IMenuItem, showContextualMenu } from '../../lib/menu-item'
 import { getDotComAPIEndpoint } from '../../lib/api'
 import { writeClipboardText } from '../main-process-proxy'
 import { RowIndexPath } from '../lib/list/list-row-index-path'
-import { assertNever } from '../../lib/fatal-error'
 import { CommitDragElement } from '../drag-elements/commit-drag-element'
 import { AriaLiveContainer } from '../accessibility/aria-live-container'
 import debounce from 'lodash/debounce'
@@ -64,7 +63,7 @@ interface ICommitListProps {
   readonly emptyListMessage?: JSX.Element | string
 
   /** Data to be reordered via keyboard */
-  readonly keyboardReorderData?: KeyboardInsertionData
+  readonly keyboardReorderData?: KeyboardInsertionData<CommitDragData>
 
   /** Callback which fires when a commit has been selected in the list */
   readonly onCommitsSelected?: (
@@ -667,27 +666,21 @@ export class CommitList extends React.Component<
     data: KeyboardInsertionData
   ): JSX.Element | null => {
     const { emoji, gitHubRepository } = this.props
-    const { commits } = data
 
-    if (commits.length === 0) {
+    if (data.type !== DragType.Commit || data.commits.length === 0) {
       return null
     }
 
-    switch (data.type) {
-      case DragType.Commit:
-        return (
-          <CommitDragElement
-            gitHubRepository={gitHubRepository}
-            commit={commits[0]}
-            selectedCommits={commits}
-            isKeyboardInsertion={true}
-            emoji={emoji}
-            accounts={this.props.accounts}
-          />
-        )
-      default:
-        return assertNever(data.type, `Unknown drag element type: ${data}`)
-    }
+    return (
+      <CommitDragElement
+        gitHubRepository={gitHubRepository}
+        commit={data.commits[0]}
+        selectedCommits={data.commits}
+        isKeyboardInsertion={true}
+        emoji={emoji}
+        accounts={this.props.accounts}
+      />
+    )
   }
 
   private onRowContextMenu = (

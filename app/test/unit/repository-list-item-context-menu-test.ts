@@ -10,6 +10,24 @@ const editorSubmenuLabel = __DARWIN__ ? 'Open With Editor' : 'Open with editor'
 const shellSubmenuLabel = __DARWIN__
   ? 'Open With Terminal'
   : 'Open with terminal'
+const moveSubmenuLabel = __DARWIN__
+  ? 'Move Pinned Repository'
+  : 'Move pinned repository'
+
+function pinnedRepository(path: string, id: number, pinOrder: number) {
+  return new Repository(
+    path,
+    id,
+    null,
+    false,
+    null,
+    {},
+    false,
+    undefined,
+    undefined,
+    pinOrder
+  )
+}
 
 function createMenu(
   overrides: Partial<Parameters<typeof generateRepositoryListContextMenu>[0]>
@@ -34,6 +52,8 @@ function createMenu(
     onChangeRepositoryAlias: noop,
     onRemoveRepositoryAlias: noop,
     onTogglePinRepository: noop,
+    pinnedRepositories: [],
+    onReorderPinnedRepositories: noop,
     ...overrides,
   })
 }
@@ -110,5 +130,66 @@ describe('generateRepositoryListContextMenu', () => {
 
     assert.equal(findItem(items, editorSubmenuLabel)?.enabled, false)
     assert.equal(findItem(items, shellSubmenuLabel)?.enabled, false)
+  })
+
+  describe('moving pinned repositories', () => {
+    const a = pinnedRepository('/a', 11, 0)
+    const b = pinnedRepository('/b', 12, 1)
+    const c = pinnedRepository('/c', 13, 2)
+
+    it('enables the moves available at each position', () => {
+      const enabled = (repository: Repository) =>
+        findItem(
+          createMenu({ repository, pinnedRepositories: [a, b, c] }),
+          moveSubmenuLabel
+        )?.submenu?.map(i => i.enabled)
+
+      assert.deepEqual(enabled(a), [false, false, true, true])
+      assert.deepEqual(enabled(b), [true, true, true, true])
+      assert.deepEqual(enabled(c), [true, true, false, false])
+    })
+
+    it('reorders the pinned repositories', () => {
+      const onReorderPinnedRepositories = mock.fn(
+        (_repositories: ReadonlyArray<Repository>) => {}
+      )
+      const submenu = findItem(
+        createMenu({
+          repository: b,
+          pinnedRepositories: [a, b, c],
+          onReorderPinnedRepositories,
+        }),
+        moveSubmenuLabel
+      )?.submenu
+
+      assert(submenu !== undefined)
+      submenu.forEach(item => item.action?.())
+
+      assert.deepEqual(
+        onReorderPinnedRepositories.mock.calls.map(call =>
+          call.arguments[0].map(r => r.path)
+        ),
+        [
+          ['/b', '/a', '/c'],
+          ['/b', '/a', '/c'],
+          ['/a', '/c', '/b'],
+          ['/a', '/c', '/b'],
+        ]
+      )
+    })
+
+    it('is omitted for unpinned repositories and single pins', () => {
+      assert.equal(
+        findItem(createMenu({ pinnedRepositories: [a, b] }), moveSubmenuLabel),
+        undefined
+      )
+      assert.equal(
+        findItem(
+          createMenu({ repository: a, pinnedRepositories: [a] }),
+          moveSubmenuLabel
+        ),
+        undefined
+      )
+    })
   })
 })

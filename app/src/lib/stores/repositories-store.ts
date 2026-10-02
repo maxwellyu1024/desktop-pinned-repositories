@@ -155,7 +155,7 @@ export class RepositoriesStore extends TypedBaseStore<
       repo.isTutorialRepository,
       repo.gitDir,
       repo.mainWorktreePath,
-      repo.isPinned
+      repo.pinOrder ?? null
     )
   }
 
@@ -297,7 +297,7 @@ export class RepositoriesStore extends TypedBaseStore<
       repository.isTutorialRepository,
       repository.gitDir,
       repository.mainWorktreePath,
-      repository.isPinned
+      repository.pinOrder
     )
   }
 
@@ -320,7 +320,7 @@ export class RepositoriesStore extends TypedBaseStore<
       repository.isTutorialRepository,
       gitDir,
       repository.mainWorktreePath,
-      repository.isPinned
+      repository.pinOrder
     )
   }
 
@@ -340,7 +340,9 @@ export class RepositoriesStore extends TypedBaseStore<
   }
 
   /**
-   * Update the pinned state for the specified repository.
+   * Update the pinned state for the specified repository. Newly pinned
+   * repositories are placed last in the pinned group, repositories that are
+   * already pinned keep their position.
    *
    * @param repository  The repository to update.
    * @param isPinned    Whether the repository should be pinned.
@@ -349,7 +351,47 @@ export class RepositoriesStore extends TypedBaseStore<
     repository: Repository,
     isPinned: boolean
   ): Promise<void> {
-    await this.db.repositories.update(repository.id, { isPinned })
+    await this.db.transaction('rw', this.db.repositories, async () => {
+      if (!isPinned) {
+        await this.db.repositories.update(repository.id, { pinOrder: null })
+        return
+      }
+
+      const record = await this.db.repositories.get(repository.id)
+      if (record === undefined || (record.pinOrder ?? null) !== null) {
+        return
+      }
+
+      let lastPinOrder = -1
+      await this.db.repositories.each(repo => {
+        if (repo.pinOrder != null && repo.pinOrder > lastPinOrder) {
+          lastPinOrder = repo.pinOrder
+        }
+      })
+
+      await this.db.repositories.update(repository.id, {
+        pinOrder: lastPinOrder + 1,
+      })
+    })
+
+    this.emitUpdatedRepositories()
+  }
+
+  /**
+   * Persist the order of the pinned group in the repository list.
+   *
+   * @param repositories  All pinned repositories, in their new order.
+   */
+  public async updatePinnedRepositoriesOrder(
+    repositories: ReadonlyArray<Repository>
+  ): Promise<void> {
+    await this.db.transaction('rw', this.db.repositories, () =>
+      Promise.all(
+        repositories.map((repository, pinOrder) =>
+          this.db.repositories.update(repository.id, { pinOrder })
+        )
+      )
+    )
 
     this.emitUpdatedRepositories()
   }
@@ -402,7 +444,7 @@ export class RepositoriesStore extends TypedBaseStore<
       repository.isTutorialRepository,
       gitDir,
       mainWorktreePath,
-      repository.isPinned
+      repository.pinOrder
     )
   }
 
@@ -456,7 +498,7 @@ export class RepositoriesStore extends TypedBaseStore<
         repository.isTutorialRepository,
         gitDir,
         mainWorktreePath,
-        repository.isPinned
+        repository.pinOrder
       ),
       existingRepository: false,
     }
@@ -607,7 +649,7 @@ export class RepositoriesStore extends TypedBaseStore<
       repo.isTutorialRepository,
       repo.gitDir,
       repo.mainWorktreePath,
-      repo.isPinned
+      repo.pinOrder
     )
 
     assertIsRepositoryWithGitHubRepository(updatedRepo)

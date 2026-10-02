@@ -329,6 +329,13 @@ interface ISectionListProps {
   readonly insertionDragType?: DragType
 
   /**
+   * An optional handler called to determine whether elements can be inserted
+   * before or after the given row via drag & drop. Defaults to all rows when
+   * `insertionDragType` is set.
+   */
+  readonly canInsertAtRow?: (indexPath: RowIndexPath) => boolean
+
+  /**
    * The number of pixels from the top of the list indicating
    * where to scroll do on rendering of the list.
    */
@@ -1218,7 +1225,8 @@ export class SectionList extends React.Component<
         this.props.sectionHasHeader?.(indexPath.section) ?? false
 
       const element =
-        this.props.insertionDragType !== undefined ? (
+        this.props.insertionDragType !== undefined &&
+        (this.props.canInsertAtRow?.(indexPath) ?? true) ? (
           <ListItemInsertionOverlay
             onDropDataInsertion={this.props.onDropDataInsertion}
             itemIndex={indexPath}

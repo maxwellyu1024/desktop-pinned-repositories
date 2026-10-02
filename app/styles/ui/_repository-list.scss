@@ -13,6 +13,15 @@
    */
   min-width: inherit;
 
+  // 列表项外层的拖拽包裹层（Pinned 分组可拖拽排序），需撑满整行并保持
+  // 列表项垂直居中
+  .draggable {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+  }
+
   /**
    * Container for repository list items in the sidebar
    *

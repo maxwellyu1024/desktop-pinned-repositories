@@ -67,9 +67,10 @@ export class Repository {
      */
     public readonly mainWorktreePath: string | undefined = undefined,
     /**
-     * Whether the user has pinned this repository in the repository list.
+     * The position of this repository in the pinned group of the repository
+     * list, lower values first, or null if the user hasn't pinned it.
      */
-    public readonly isPinned: boolean = false
+    public readonly pinOrder: number | null = null
   ) {
     this.name = (gitHubRepository && gitHubRepository.name) || getBaseName(path)
 
@@ -81,8 +82,13 @@ export class Repository {
       this.alias,
       this.workflowPreferences.forkContributionTarget,
       this.isTutorialRepository,
-      this.isPinned
+      this.pinOrder
     )
+  }
+
+  /** Whether the user has pinned this repository in the repository list. */
+  public get isPinned(): boolean {
+    return this.pinOrder !== null
   }
 
   /**

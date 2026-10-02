@@ -3,6 +3,8 @@ import { BaseDatabase } from './base-database'
 import { WorkflowPreferences } from '../../models/workflow-preferences'
 import { assertNonNullable } from '../fatal-error'
 import { GitHubAccountType } from '../api'
+import { caseInsensitiveCompare } from '../compare'
+import * as Path from 'path'
 
 export interface IDatabaseOwner {
   readonly id?: number
@@ -53,8 +55,11 @@ export interface IDatabaseRepository {
   readonly alias: string | null
   readonly missing: boolean
 
-  /** Whether the user has pinned this repository in the repository list */
-  readonly isPinned?: boolean
+  /**
+   * The position of this repository in the pinned group of the repository
+   * list, lower values first. Null or missing when the repository isn't pinned.
+   */
+  readonly pinOrder?: number | null
 
   /** The path to the .git directory for this repository */
   readonly gitDir?: string
@@ -149,6 +154,7 @@ export class RepositoriesDatabase extends BaseDatabase {
 
     this.conditionalVersion(8, {}, ensureNoUndefinedParentID)
     this.conditionalVersion(9, { owners: '++id, &key' }, createOwnerKey)
+    this.conditionalVersion(10, {}, migratePinnedState)
   }
 }
 
@@ -243,6 +249,53 @@ async function createOwnerKey(tx: Transaction) {
   }
 
   await ownersTable.bulkDelete(ownersToDelete)
+}
+
+/**
+ * Replace the `isPinned` flag with `pinOrder`, numbering the pinned
+ * repositories in the order they were displayed (alias or name,
+ * case-insensitive) so the pinned group looks the same after upgrading.
+ */
+async function migratePinnedState(tx: Transaction) {
+  type RepositoryBeforeUpgrade = {
+    -readonly [K in keyof IDatabaseRepository]: IDatabaseRepository[K]
+  } & { isPinned?: boolean }
+
+  const repositoriesTable = tx.table<RepositoryBeforeUpgrade, number>(
+    'repositories'
+  )
+  const ghReposTable = tx.table<IDatabaseGitHubRepository, number>(
+    'gitHubRepositories'
+  )
+
+  const pinned = new Array<{ id: number; title: string }>()
+  for (const repo of await repositoriesTable.toArray()) {
+    if (repo.isPinned !== true) {
+      continue
+    }
+
+    assertNonNullable(repo.id, 'Missing repository id')
+    const ghRepo =
+      repo.gitHubRepositoryID !== null
+        ? await ghReposTable.get(repo.gitHubRepositoryID)
+        : undefined
+    const title =
+      repo.alias ?? (ghRepo?.name || Path.basename(repo.path) || repo.path)
+    pinned.push({ id: repo.id, title })
+  }
+
+  pinned.sort((x, y) => caseInsensitiveCompare(x.title, y.title))
+  const pinOrders = new Map(pinned.map(({ id }, index) => [id, index]))
+
+  const modified = await repositoriesTable.toCollection().modify(repo => {
+    delete repo.isPinned
+    repo.pinOrder =
+      repo.id !== undefined ? pinOrders.get(repo.id) ?? null : null
+  })
+
+  log.info(
+    `migratePinnedState: ${modified} repositories, ${pinned.length} pinned`
+  )
 }
 
 /* Creates a case-insensitive key used to uniquely identify an owner

@@ -25,7 +25,7 @@ import { IMatches } from '../../lib/fuzzy-find'
 import { Ref } from '../lib/ref'
 import { MergeCallToActionWithConflicts } from './merge-call-to-action-with-conflicts'
 import { AheadBehindStore } from '../../lib/stores/ahead-behind-store'
-import { DragType } from '../../models/drag-drop'
+import { CommitDragData, DragType } from '../../models/drag-drop'
 import { PopupType } from '../../models/popup'
 import { getUniqueCoauthorsAsAuthors } from '../../lib/unique-coauthors-as-authors'
 import { getSquashedCommitDescription } from '../../lib/squash/squashed-commit-description'
@@ -72,7 +72,7 @@ interface ICompareSidebarState {
   readonly focusedBranch: Branch | null
 
   /** Data to be reordered via keyboard */
-  readonly keyboardReorderData?: KeyboardInsertionData
+  readonly keyboardReorderData?: KeyboardInsertionData<CommitDragData>
 }
 
 /** If we're within this many rows from the bottom, load the next history batch. */

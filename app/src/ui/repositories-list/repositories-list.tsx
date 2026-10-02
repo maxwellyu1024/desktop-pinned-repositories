@@ -8,6 +8,8 @@ import {
   Repositoryish,
   RepositoryListGroup,
   getGroupKey,
+  getPinnedRepositories,
+  movePinnedRepository,
 } from './group-repositories'
 import { IFilterListGroup } from '../lib/filter-list'
 import { IMatches } from '../../lib/fuzzy-find'
@@ -28,6 +30,7 @@ import { enableWorktreeSupport } from '../../lib/feature-flag'
 import { SectionFilterList } from '../lib/section-filter-list'
 import { assertNever } from '../../lib/fatal-error'
 import { IAheadBehind } from '../../models/branch'
+import { DragData, DragType } from '../../models/drag-drop'
 
 const BlankSlateImage = encodePathAsUrl(__dirname, 'static/empty-no-repo.svg')
 
@@ -160,6 +163,9 @@ export class RepositoriesList extends React.Component<
    */
   private getSelectedListItem = memoizeOne(findMatchingListItem)
 
+  /** The pinned repositories in the order of the pinned group */
+  private getPinnedRepositories = memoizeOne(getPinnedRepositories)
+
   public constructor(props: IRepositoriesListProps) {
     super(props)
 
@@ -180,8 +186,63 @@ export class RepositoriesList extends React.Component<
         aheadBehind={item.aheadBehind}
         changedFilesCount={item.changedFilesCount}
         onTogglePin={this.onTogglePin}
+        isDraggable={
+          item.group.kind === 'pinned' && this.canReorderPinnedRepositories()
+        }
+        onRenderDragElement={this.onRenderRepositoryDragElement}
+        onRemoveDragElement={this.onRemoveRepositoryDragElement}
       />
     )
+  }
+
+  /**
+   * Whether the pinned group can be reordered by dragging. While filtering,
+   * the displayed items don't map onto the full pinned order.
+   */
+  private canReorderPinnedRepositories() {
+    return (
+      this.props.filterText.length === 0 &&
+      this.getPinnedRepositories(this.props.repositories).length > 1
+    )
+  }
+
+  private canInsertIntoGroup = (group: RepositoryListGroup) =>
+    group.kind === 'pinned'
+
+  private onDropDataInsertion = (
+    group: RepositoryListGroup,
+    itemIndex: number,
+    data: DragData
+  ) => {
+    if (group.kind !== 'pinned' || data.type !== DragType.Repository) {
+      return
+    }
+
+    const order = movePinnedRepository(
+      this.getPinnedRepositories(this.props.repositories),
+      data.repository,
+      itemIndex
+    )
+    if (order !== null) {
+      this.props.dispatcher.reorderPinnedRepositories(order)
+    }
+  }
+
+  private onRenderRepositoryDragElement = (repository: Repository) => {
+    this.props.dispatcher.setDragElement({
+      type: DragType.Repository,
+      repository,
+    })
+  }
+
+  private onRemoveRepositoryDragElement = () => {
+    this.props.dispatcher.clearDragElement()
+  }
+
+  private onReorderPinnedRepositories = (
+    repositories: ReadonlyArray<Repository>
+  ) => {
+    this.props.dispatcher.reorderPinnedRepositories(repositories)
   }
 
   private getAheadBehindTooltip = (aheadBehind: IAheadBehind | null) => {
@@ -323,6 +384,8 @@ export class RepositoriesList extends React.Component<
       onChangeRepositoryAlias: this.onChangeRepositoryAlias,
       onRemoveRepositoryAlias: this.onRemoveRepositoryAlias,
       onTogglePinRepository: this.onTogglePin,
+      pinnedRepositories: this.getPinnedRepositories(this.props.repositories),
+      onReorderPinnedRepositories: this.onReorderPinnedRepositories,
       onViewOnGitHub: this.props.onViewOnGitHub,
       onCreateWorktree: enableWorktreeSupport()
         ? this.onCreateWorktree
@@ -385,6 +448,9 @@ export class RepositoriesList extends React.Component<
           getGroupAriaLabel={this.getGroupAriaLabelGetter(groups)}
           getItemAriaLabel={this.getItemAriaLabel}
           onSelectionChanged={this.onSelectionChanged}
+          insertionDragType={DragType.Repository}
+          canInsertIntoGroup={this.canInsertIntoGroup}
+          onDropDataInsertion={this.onDropDataInsertion}
         />
       </div>
     )

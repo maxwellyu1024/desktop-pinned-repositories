@@ -7,6 +7,7 @@ import {
   SelectionDirection,
 } from '../lib/list/section-list-selection'
 import { TextBox } from '../lib/text-box'
+import { DragData, DragType } from '../../models/drag-drop'
 import { Row } from '../lib/row'
 
 import { match, IMatch, IMatches } from '../../lib/fuzzy-find'
@@ -186,6 +187,31 @@ interface ISectionFilterListProps<T extends IFilterListItem, GroupIdentifier> {
   readonly onItemContextMenu?: (
     item: T,
     event: React.MouseEvent<HTMLDivElement>
+  ) => void
+
+  /** Type of elements that can be inserted in the list via drag & drop. */
+  readonly insertionDragType?: DragType
+
+  /**
+   * Called to determine whether elements can be inserted between the items of
+   * the given group via drag & drop. Defaults to all groups when
+   * `insertionDragType` is set.
+   */
+  readonly canInsertIntoGroup?: (identifier: GroupIdentifier) => boolean
+
+  /**
+   * Called when the user drops elements between the items of a group.
+   *
+   * @param identifier  The group the elements were dropped into.
+   * @param itemIndex   The position among the displayed items of the group
+   *                    to insert the elements at, from 0 (before the first
+   *                    item) to the number of items (after the last one).
+   * @param data        The data dropped by the user.
+   */
+  readonly onDropDataInsertion?: (
+    identifier: GroupIdentifier,
+    itemIndex: number,
+    data: DragData
   ) => void
 }
 
@@ -403,6 +429,9 @@ export class SectionFilterList<
           onRowKeyDown={this.onRowKeyDown}
           onRowContextMenu={this.onRowContextMenu}
           canSelectRow={this.canSelectRow}
+          insertionDragType={this.props.insertionDragType}
+          canInsertAtRow={this.canInsertAtRow}
+          onDropDataInsertion={this.onDropDataInsertion}
           invalidationProps={{
             ...this.props,
             ...this.props.invalidationProps,
@@ -410,6 +439,33 @@ export class SectionFilterList<
         />
       )
     }
+  }
+
+  private getGroupIdentifier(section: number) {
+    return this.props.groups[this.state.groups[section]].identifier
+  }
+
+  private canInsertAtRow = (index: RowIndexPath) => {
+    const row = this.state.rows[index.section]?.[index.row]
+    return (
+      row?.kind === 'item' &&
+      (this.props.canInsertIntoGroup?.(
+        this.getGroupIdentifier(index.section)
+      ) ??
+        true)
+    )
+  }
+
+  private onDropDataInsertion = (index: RowIndexPath, data: DragData) => {
+    const itemIndex = this.sectionHasHeader(index.section)
+      ? index.row - 1
+      : index.row
+
+    this.props.onDropDataInsertion?.(
+      this.getGroupIdentifier(index.section),
+      itemIndex,
+      data
+    )
   }
 
   private sectionHasHeader = (section: number) => {

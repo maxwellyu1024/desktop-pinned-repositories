@@ -4,6 +4,7 @@ import {
   RepositoriesDatabase,
   IDatabaseGitHubRepository,
   IDatabaseOwner,
+  IDatabaseRepository,
   getOwnerKey,
 } from '../../src/lib/databases'
 
@@ -111,6 +112,70 @@ describe('RepositoriesDatabase', () => {
     assert.deepStrictEqual(migratedRepoA?.ownerID, migratedOwner?.id)
     assert.deepStrictEqual(migratedOwner?.endpoint, endpoint)
     assert.deepStrictEqual(migratedOwner?.key, getOwnerKey(endpoint, 'DeskTop'))
+
+    await db.delete()
+  })
+
+  it('migrates from version 9 to 10 by numbering pinned repositories', async () => {
+    const dbName = 'TestRepositoriesDatabase'
+    let db = new RepositoriesDatabase(dbName, 9)
+    await db.delete()
+    await db.open()
+
+    type RepositoryBeforeUpgrade = Omit<IDatabaseRepository, 'pinOrder'> & {
+      isPinned?: boolean
+    }
+    const repositoriesBeforeUpgrade = db.table<RepositoryBeforeUpgrade, number>(
+      'repositories'
+    )
+
+    const ghRepoId = await db.gitHubRepositories.add({
+      ownerID: 1,
+      name: 'middle',
+      private: false,
+      htmlURL: null,
+      cloneURL: null,
+      parentID: null,
+      lastPruneDate: null,
+    })
+
+    const addRepository = (
+      path: string,
+      isPinned: boolean | undefined,
+      alias: string | null = null,
+      gitHubRepositoryID: number | null = null
+    ) =>
+      repositoriesBeforeUpgrade.add({
+        path,
+        alias,
+        gitHubRepositoryID,
+        missing: false,
+        ...(isPinned !== undefined && { isPinned }),
+      })
+
+    const zeta = await addRepository('/repos/zeta', true)
+    const alpha = await addRepository('/repos/Alpha', true)
+    const middle = await addRepository('/repos/gh', true, null, ghRepoId)
+    const beta = await addRepository('/repos/aliased', true, 'beta')
+    const unpinned = await addRepository('/repos/unpinned', false)
+    const legacy = await addRepository('/repos/legacy', undefined)
+    db.close()
+
+    db = new RepositoriesDatabase(dbName, 10)
+    await db.open()
+
+    const pinOrders = new Map(
+      (await db.repositories.toArray()).map(r => [r.id, r.pinOrder])
+    )
+    assert.deepStrictEqual(
+      [alpha, beta, middle, zeta, unpinned, legacy].map(id =>
+        pinOrders.get(id)
+      ),
+      [0, 1, 2, 3, null, null]
+    )
+
+    const records = await db.table('repositories').toArray()
+    assert(records.every(r => !('isPinned' in r)))
 
     await db.delete()
   })

@@ -1,6 +1,10 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { groupRepositories } from '../../src/ui/repositories-list/group-repositories'
+import {
+  getPinnedRepositories,
+  groupRepositories,
+  movePinnedRepository,
+} from '../../src/ui/repositories-list/group-repositories'
 import { Repository, ILocalRepositoryState } from '../../src/models/repository'
 import { CloningRepository } from '../../src/models/cloning-repository'
 import { gitHubRepoFixture } from '../helpers/github-repo-builder'
@@ -154,7 +158,7 @@ describe('repository list grouping', () => {
     assert(grouped[2].items[1].needsDisambiguation)
   })
 
-  it('includes isPinned in the repository hash', () => {
+  it('includes pinOrder in the repository hash', () => {
     const unpinned = new Repository('repo', 1, null, false)
     const pinned = new Repository(
       'repo',
@@ -166,9 +170,10 @@ describe('repository list grouping', () => {
       false,
       undefined,
       undefined,
-      true
+      0
     )
     assert.notEqual(pinned.hash, unpinned.hash)
+    assert.notEqual(pinned.hash, pinnedRepository('repo', 1, 1).hash)
   })
 
   it('places pinned repositories in a pinned group before all others', () => {
@@ -183,7 +188,7 @@ describe('repository list grouping', () => {
       false,
       undefined,
       undefined,
-      true
+      0
     )
     const grouped = groupRepositories([...repositories, pinnedRepo], cache, [])
 
@@ -204,7 +209,7 @@ describe('repository list grouping', () => {
       false,
       undefined,
       undefined,
-      true
+      0
     )
     const grouped = groupRepositories(
       [...repositories, pinnedDotComRepo],
@@ -242,7 +247,7 @@ describe('repository list grouping', () => {
         false,
         undefined,
         undefined,
-        true
+        0
       ),
     ]
     const grouped = groupRepositories(many, cache, [1])
@@ -264,7 +269,7 @@ describe('repository list grouping', () => {
       false,
       undefined,
       undefined,
-      true
+      0
     )
     const repoB = new Repository(
       'dup',
@@ -279,4 +284,88 @@ describe('repository list grouping', () => {
     assert.equal(pinnedGroup.items.length, 1)
     assert(pinnedGroup.items[0].needsDisambiguation)
   })
+
+  it('orders the pinned group by pin order instead of name', () => {
+    const grouped = groupRepositories(
+      [
+        pinnedRepository('alpha', 1, 2),
+        pinnedRepository('bravo', 2, 0),
+        pinnedRepository('charlie', 3, 1),
+      ],
+      cache,
+      []
+    )
+
+    const pinnedGroup = grouped.find(g => g.identifier.kind === 'pinned')
+    const otherGroup = grouped.find(g => g.identifier.kind === 'other')
+    assert(pinnedGroup !== undefined)
+    assert(otherGroup !== undefined)
+    assert.deepEqual(
+      pinnedGroup.items.map(i => i.repository.path),
+      ['bravo', 'charlie', 'alpha']
+    )
+    assert.deepEqual(
+      otherGroup.items.map(i => i.repository.path),
+      ['alpha', 'bravo', 'charlie']
+    )
+  })
 })
+
+describe('getPinnedRepositories', () => {
+  it('returns only pinned repositories in pin order', () => {
+    const pinned = getPinnedRepositories([
+      pinnedRepository('alpha', 1, 1),
+      new Repository('bravo', 2, null, false),
+      pinnedRepository('charlie', 3, 0),
+    ])
+
+    assert.deepEqual(
+      pinned.map(r => r.path),
+      ['charlie', 'alpha']
+    )
+  })
+})
+
+describe('movePinnedRepository', () => {
+  const a = pinnedRepository('a', 1, 0)
+  const b = pinnedRepository('b', 2, 1)
+  const c = pinnedRepository('c', 3, 2)
+  const order = [a, b, c]
+
+  const paths = (repositories: ReadonlyArray<Repository> | null) =>
+    repositories?.map(r => r.path) ?? null
+
+  it('moves a repository to the given insertion point', () => {
+    assert.deepEqual(paths(movePinnedRepository(order, c, 0)), ['c', 'a', 'b'])
+    assert.deepEqual(paths(movePinnedRepository(order, a, 3)), ['b', 'c', 'a'])
+    assert.deepEqual(paths(movePinnedRepository(order, a, 2)), ['b', 'a', 'c'])
+    assert.deepEqual(paths(movePinnedRepository(order, c, 1)), ['a', 'c', 'b'])
+  })
+
+  it('returns null when the repository would stay in place', () => {
+    assert.equal(movePinnedRepository(order, b, 1), null)
+    assert.equal(movePinnedRepository(order, b, 2), null)
+    assert.equal(movePinnedRepository(order, a, -1), null)
+    assert.equal(movePinnedRepository(order, c, 4), null)
+  })
+
+  it('returns null for repositories that are not pinned', () => {
+    const unpinned = new Repository('d', 4, null, false)
+    assert.equal(movePinnedRepository(order, unpinned, 0), null)
+  })
+})
+
+function pinnedRepository(path: string, id: number, pinOrder: number) {
+  return new Repository(
+    path,
+    id,
+    null,
+    false,
+    null,
+    {},
+    false,
+    undefined,
+    undefined,
+    pinOrder
+  )
+}
