@@ -165,6 +165,7 @@ describe('repository list grouping', () => {
       {},
       false,
       undefined,
+      undefined,
       true
     )
     assert.notEqual(pinned.hash, unpinned.hash)
@@ -180,6 +181,7 @@ describe('repository list grouping', () => {
       null,
       {},
       false,
+      undefined,
       undefined,
       true
     )
@@ -200,6 +202,7 @@ describe('repository list grouping', () => {
       null,
       {},
       false,
+      undefined,
       undefined,
       true
     )
@@ -229,7 +232,18 @@ describe('repository list grouping', () => {
       new Repository('r6', 6, null, false),
       new Repository('r7', 7, null, false),
       new Repository('r8', 8, null, false),
-      new Repository('r9', 9, null, false, null, {}, false, undefined, true),
+      new Repository(
+        'r9',
+        9,
+        null,
+        false,
+        null,
+        {},
+        false,
+        undefined,
+        undefined,
+        true
+      ),
     ]
     const grouped = groupRepositories(many, cache, [1])
 
@@ -248,6 +262,7 @@ describe('repository list grouping', () => {
       null,
       {},
       false,
+      undefined,
       undefined,
       true
     )

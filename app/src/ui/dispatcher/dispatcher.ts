@@ -53,7 +53,7 @@ import { ILaunchStats, StatsStore } from '../../lib/stats'
 import { AppStore } from '../../lib/stores/app-store'
 import type {
   CopilotFeature,
-  CopilotModelSelections,
+  CopilotModelSelectionsByAccount,
 } from '../../lib/stores/copilot-store'
 import type { IBYOKProvider } from '../../lib/copilot/byok'
 import { RepositoryStateCache } from '../../lib/stores/repository-state-cache'
@@ -1582,6 +1582,11 @@ export class Dispatcher {
     return this.appStore._reportStats()
   }
 
+  /** Send the current stats without affecting the daily reporting schedule. */
+  public sendStats(): Promise<boolean> {
+    return this.appStore._sendStats()
+  }
+
   /** Changes the URL for the remote that matches the given name  */
   public setRemoteURL(
     repository: Repository,
@@ -1637,6 +1642,22 @@ export class Dispatcher {
    */
   public async openInExternalEditor(fullPath: string): Promise<void> {
     return this.appStore._openInExternalEditor(fullPath)
+  }
+
+  /** Open the selected checkout in the GitHub Copilot app. */
+  public async openInCopilotApp(repositoryPath: string): Promise<void> {
+    this.statsStore.increment('openInCopilotAppCount')
+
+    try {
+      await this.appStore._openInCopilotApp(repositoryPath)
+    } catch (error) {
+      await this.postError(error)
+    }
+  }
+
+  /** Set the configured GitHub Copilot app path used for repository handoff. */
+  public setCopilotAppPath(path: string | null): Promise<void> {
+    return this.appStore._setCopilotAppPath(path)
   }
 
   /**
@@ -1703,20 +1724,16 @@ export class Dispatcher {
   }
 
   /**
-   * Attempt to advance from the EndpointEntry step with the given endpoint
-   * url. This method must only be called when the store is in the authentication
-   * step or an error will be thrown.
+   * Select an endpoint from the entry or existing-account step.
    *
-   * The provided endpoint url will be validated for syntactic correctness as
-   * well as connectivity before the promise resolves. If the endpoint url is
-   * invalid or the host can't be reached the promise will be rejected and the
-   * sign in state updated with an error to be presented to the user.
-   *
-   * If validation is successful the store will advance to the authentication
-   * step.
+   * Set isEndpointFromGit for endpoints supplied by Git so that browser
+   * authentication explains how to verify unfamiliar servers.
    */
-  public setSignInEndpoint(url: string): Promise<void> {
-    return this.appStore._setSignInEndpoint(url)
+  public setSignInEndpoint(
+    url: string,
+    isEndpointFromGit = false
+  ): Promise<void> {
+    return this.appStore._setSignInEndpoint(url, isEndpointFromGit)
   }
 
   public beginDotComSignIn(resultCallback: (result: SignInResult) => void) {
@@ -4202,6 +4219,11 @@ export class Dispatcher {
     return this.appStore._updateShowDiffCheckMarks(diffCheckMarks)
   }
 
+  /** Set whether the worktree list is shown even without linked worktrees. */
+  public setAlwaysShowWorktreeList(alwaysShowWorktreeList: boolean) {
+    return this.appStore._setAlwaysShowWorktreeList(alwaysShowWorktreeList)
+  }
+
   public setPreferAbsoluteDates(value: boolean) {
     return this.appStore._setPreferAbsoluteDates(value)
   }
@@ -4270,15 +4292,18 @@ export class Dispatcher {
 
   /** Set the selected Copilot model for a specific feature. */
   public setSelectedCopilotModel(
+    account: Account,
     feature: CopilotFeature,
     model: string | null
   ) {
-    return this.appStore._setSelectedCopilotModel(feature, model)
+    return this.appStore._setSelectedCopilotModel(account, feature, model)
   }
 
-  /** Replace all per-feature Copilot model selections at once. */
-  public setSelectedCopilotModels(models: CopilotModelSelections) {
-    return this.appStore._setSelectedCopilotModels(models)
+  /** Replace all account-scoped Copilot model selections at once. */
+  public setSelectedCopilotModelsByAccount(
+    modelsByAccount: CopilotModelSelectionsByAccount
+  ) {
+    return this.appStore._setSelectedCopilotModelsByAccount(modelsByAccount)
   }
 
   public setAlwaysUseCopilotForConflictResolution(value: boolean): void {
@@ -4288,6 +4313,11 @@ export class Dispatcher {
   /** Fetch the list of available Copilot models from the SDK. */
   public fetchCopilotModels(): Promise<void> {
     return this.appStore._fetchCopilotModels()
+  }
+
+  /** Fetch Copilot quota usage snapshots from the SDK. */
+  public fetchCopilotQuotaSnapshots(): Promise<void> {
+    return this.appStore._fetchCopilotQuotaSnapshots()
   }
 
   /**

@@ -45,8 +45,11 @@ import { Accessibility } from './accessibility'
 import { CopilotPreferences } from './copilot'
 import type {
   CopilotFeature,
-  CopilotModelSelections,
+  CopilotModelsByAccount,
+  CopilotModelSelectionsByAccount,
+  CopilotQuotaSnapshotsByAccount,
 } from '../../lib/stores/copilot-store'
+import { getCopilotAccountCacheKey } from '../../lib/stores/copilot-store'
 import type { IBYOKProvider } from '../../lib/copilot/byok'
 import { PopupType } from '../../models/popup'
 import {
@@ -77,8 +80,11 @@ import {
   setTimeFormatPreference,
   setNumberFormatPreference,
 } from '../../models/formatting-preferences'
-import { enableFormattingPreferences } from '../../lib/feature-flag'
-import type { Model } from '@github/copilot-sdk/dist/generated/rpc'
+import {
+  enableCopilotAppHandoff,
+  enableFormattingPreferences,
+} from '../../lib/feature-flag'
+import { validateCopilotAppPath } from '../../lib/copilot-app'
 
 interface IPreferencesProps {
   readonly dispatcher: Dispatcher
@@ -106,16 +112,19 @@ interface IPreferencesProps {
   readonly selectedShell: Shell
   readonly selectedTheme: ApplicationTheme
   readonly selectedTabSize: number
+  readonly alwaysShowWorktreeList: boolean
   readonly useCustomEditor: boolean
   readonly customEditor: ICustomIntegration | null
   readonly useCustomShell: boolean
   readonly customShell: ICustomIntegration | null
+  readonly copilotAppPath: string | null
   readonly repositoryIndicatorsEnabled: boolean
   readonly onEditGlobalGitConfig: () => void
   readonly underlineLinks: boolean
   readonly showDiffCheckMarks: boolean
-  readonly selectedCopilotModels: CopilotModelSelections
-  readonly copilotModels: ReadonlyArray<Model> | null
+  readonly selectedCopilotModelsByAccount: CopilotModelSelectionsByAccount
+  readonly copilotModelsByAccount: CopilotModelsByAccount
+  readonly copilotQuotaSnapshotsByAccount: CopilotQuotaSnapshotsByAccount
   readonly byokProviders: ReadonlyArray<IBYOKProvider>
   readonly alwaysUseCopilotForConflictResolution: boolean
 }
@@ -150,6 +159,8 @@ interface IPreferencesState {
   readonly customEditor: ICustomIntegration
   readonly useCustomShell: boolean
   readonly customShell: ICustomIntegration
+  readonly copilotAppPath: string
+  readonly copilotAppPathError?: string
   readonly selectedExternalEditor: string | null
   readonly availableShells: ReadonlyArray<Shell>
   readonly selectedShell: Shell
@@ -166,6 +177,7 @@ interface IPreferencesState {
 
   readonly initiallySelectedTheme: ApplicationTheme
   readonly initiallySelectedTabSize: number
+  readonly alwaysShowWorktreeList: boolean
 
   readonly isLoadingGitConfig: boolean
 
@@ -180,7 +192,7 @@ interface IPreferencesState {
   // Whether the preferences related to Git hooks environment have been changed
   readonly hooksPreferencesDirty: boolean
 
-  readonly selectedCopilotModels: CopilotModelSelections
+  readonly selectedCopilotModelsByAccount: CopilotModelSelectionsByAccount
   readonly alwaysUseCopilotForConflictResolution: boolean
   readonly selectedDateFormat?: DateFormat
   readonly selectedTimeFormat?: TimeFormat
@@ -220,6 +232,7 @@ export class Preferences extends React.Component<
       customEditor: this.props.customEditor ?? DefaultCustomIntegration,
       useCustomShell: this.props.useCustomShell,
       customShell: this.props.customShell ?? DefaultCustomIntegration,
+      copilotAppPath: this.props.copilotAppPath ?? '',
       useWindowsOpenSSH: false,
       showCommitLengthWarning: false,
       notificationsEnabled: true,
@@ -242,6 +255,7 @@ export class Preferences extends React.Component<
       repositoryIndicatorsEnabled: this.props.repositoryIndicatorsEnabled,
       initiallySelectedTheme: this.props.selectedTheme,
       initiallySelectedTabSize: this.props.selectedTabSize,
+      alwaysShowWorktreeList: this.props.alwaysShowWorktreeList,
       isLoadingGitConfig: true,
       underlineLinks: this.props.underlineLinks,
       showDiffCheckMarks: this.props.showDiffCheckMarks,
@@ -249,7 +263,7 @@ export class Preferences extends React.Component<
       cacheGitHookEnv: getCacheHooksEnv(),
       selectedGitHookEnvShell: getGitHookEnvShell(),
       hooksPreferencesDirty: false,
-      selectedCopilotModels: this.props.selectedCopilotModels,
+      selectedCopilotModelsByAccount: this.props.selectedCopilotModelsByAccount,
       alwaysUseCopilotForConflictResolution:
         this.props.alwaysUseCopilotForConflictResolution,
       selectedDateFormat: getDateFormatPreference(),
@@ -293,6 +307,7 @@ export class Preferences extends React.Component<
     // Kick off Copilot model list fetch (non-blocking)
     if (this.isCopilotSdkEnabled) {
       this.props.dispatcher.fetchCopilotModels()
+      this.props.dispatcher.fetchCopilotQuotaSnapshots()
     }
 
     const availableEditors = editors.map(e => e.editor) ?? null
@@ -329,8 +344,31 @@ export class Preferences extends React.Component<
       customEditor: this.props.customEditor ?? DefaultCustomIntegration,
       useCustomShell: this.props.useCustomShell,
       customShell: this.props.customShell ?? DefaultCustomIntegration,
+      copilotAppPath: this.props.copilotAppPath ?? '',
       isLoadingGitConfig: false,
     })
+  }
+
+  public componentDidUpdate(prevProps: IPreferencesProps) {
+    if (
+      prevProps.selectedCopilotModelsByAccount !==
+      this.props.selectedCopilotModelsByAccount
+    ) {
+      this.setState({
+        selectedCopilotModelsByAccount:
+          this.props.selectedCopilotModelsByAccount,
+      })
+    }
+
+    if (
+      prevProps.alwaysUseCopilotForConflictResolution !==
+      this.props.alwaysUseCopilotForConflictResolution
+    ) {
+      this.setState({
+        alwaysUseCopilotForConflictResolution:
+          this.props.alwaysUseCopilotForConflictResolution,
+      })
+    }
   }
 
   private onCancel = () => {
@@ -527,11 +565,14 @@ export class Preferences extends React.Component<
             customEditor={this.state.customEditor}
             useCustomShell={this.state.useCustomShell}
             customShell={this.state.customShell}
+            copilotAppPath={this.state.copilotAppPath}
+            copilotAppPathError={this.state.copilotAppPathError}
             onSelectedShellChanged={this.onSelectedShellChanged}
             onUseCustomEditorChanged={this.onUseCustomEditorChanged}
             onCustomEditorChanged={this.onCustomEditorChanged}
             onUseCustomShellChanged={this.onUseCustomShellChanged}
             onCustomShellChanged={this.onCustomShellChanged}
+            onCopilotAppPathChanged={this.onCopilotAppPathChanged}
           />
         )
         break
@@ -539,8 +580,13 @@ export class Preferences extends React.Component<
       case PreferencesTab.Copilot:
         View = (
           <CopilotPreferences
-            selectedCopilotModels={this.state.selectedCopilotModels}
-            copilotModels={this.props.copilotModels}
+            selectedCopilotModelsByAccount={
+              this.state.selectedCopilotModelsByAccount
+            }
+            copilotModelsByAccount={this.props.copilotModelsByAccount}
+            copilotQuotaSnapshotsByAccount={
+              this.props.copilotQuotaSnapshotsByAccount
+            }
             accounts={this.props.accounts}
             byokProviders={this.props.byokProviders}
             showBYOKSettings={this.shouldShowBYOKSettings()}
@@ -554,9 +600,8 @@ export class Preferences extends React.Component<
             onAlwaysUseCopilotForConflictResolutionChanged={
               this.onAlwaysUseCopilotForConflictResolutionChanged
             }
-            onAddBYOKProvider={this.onAddBYOKProvider}
-            onEditBYOKProvider={this.onEditBYOKProvider}
-            onDeleteBYOKProvider={this.onDeleteBYOKProvider}
+            onConfigureCustomProviders={this.onConfigureCustomProviders}
+            onConfigureModels={this.onConfigureCopilotModels}
           />
         )
         break
@@ -610,6 +655,10 @@ export class Preferences extends React.Component<
             onSelectedThemeChanged={this.onSelectedThemeChanged}
             selectedTabSize={this.props.selectedTabSize}
             onSelectedTabSizeChanged={this.onSelectedTabSizeChanged}
+            alwaysShowWorktreeList={this.state.alwaysShowWorktreeList}
+            onAlwaysShowWorktreeListChanged={
+              this.onAlwaysShowWorktreeListChanged
+            }
             selectedDateFormat={
               this.state.selectedDateFormat ?? getDateFormatPreference()
             }
@@ -873,6 +922,10 @@ export class Preferences extends React.Component<
     this.setState({ customShell })
   }
 
+  private onCopilotAppPathChanged = (copilotAppPath: string) => {
+    this.setState({ copilotAppPath, copilotAppPathError: undefined })
+  }
+
   private onSelectedThemeChanged = (theme: ApplicationTheme) => {
     this.props.dispatcher.setSelectedTheme(theme)
   }
@@ -886,17 +939,31 @@ export class Preferences extends React.Component<
   }
 
   private onSelectedCopilotModelChanged = (
+    account: Account,
     feature: CopilotFeature,
     model: string | null
   ) => {
     this.setState(state => {
-      const selections = { ...state.selectedCopilotModels }
+      const accountKey = getCopilotAccountCacheKey(account)
+      const selections = {
+        ...state.selectedCopilotModelsByAccount.get(accountKey),
+      }
       if (model === null) {
         delete selections[feature]
       } else {
         selections[feature] = model
       }
-      return { selectedCopilotModels: selections }
+
+      const selectedCopilotModelsByAccount = new Map(
+        state.selectedCopilotModelsByAccount
+      )
+      if (Object.keys(selections).length === 0) {
+        selectedCopilotModelsByAccount.delete(accountKey)
+      } else {
+        selectedCopilotModelsByAccount.set(accountKey, selections)
+      }
+
+      return { selectedCopilotModelsByAccount }
     })
   }
 
@@ -910,29 +977,27 @@ export class Preferences extends React.Component<
     return this.props.accounts.some(enableCopilotSdkCommitMessageGeneration)
   }
 
-  private onAddBYOKProvider = () => {
+  private onConfigureCustomProviders = () => {
     this.props.dispatcher.showPopup({
-      type: PopupType.EditCopilotBYOKProvider,
-      provider: null,
+      type: PopupType.CopilotCustomProviders,
     })
   }
 
-  private onEditBYOKProvider = (provider: IBYOKProvider) => {
+  private onConfigureCopilotModels = (account: Account) => {
     this.props.dispatcher.showPopup({
-      type: PopupType.EditCopilotBYOKProvider,
-      provider,
-    })
-  }
-
-  private onDeleteBYOKProvider = (provider: IBYOKProvider) => {
-    this.props.dispatcher.showPopup({
-      type: PopupType.ConfirmDeleteCopilotBYOKProvider,
-      provider,
+      type: PopupType.CopilotUserSettings,
+      account,
     })
   }
 
   private onSelectedTabSizeChanged = (tabSize: number) => {
     this.props.dispatcher.setSelectedTabSize(tabSize)
+  }
+
+  private onAlwaysShowWorktreeListChanged = (
+    alwaysShowWorktreeList: boolean
+  ) => {
+    this.setState({ alwaysShowWorktreeList })
   }
 
   private renderFooter() {
@@ -950,6 +1015,24 @@ export class Preferences extends React.Component<
 
   private onSave = async () => {
     const { dispatcher } = this.props
+    const copilotAppPath = this.state.copilotAppPath.trim()
+    const initialCopilotAppPath = this.props.copilotAppPath?.trim() ?? ''
+    const copilotAppPathChanged = copilotAppPath !== initialCopilotAppPath
+
+    if (
+      enableCopilotAppHandoff() &&
+      copilotAppPathChanged &&
+      copilotAppPath.length > 0 &&
+      !(await validateCopilotAppPath(copilotAppPath))
+    ) {
+      this.setState({
+        selectedIndex: PreferencesTab.Integrations,
+        copilotAppPathError: __DARWIN__
+          ? 'Choose the GitHub Copilot application (.app).'
+          : 'Choose the GitHub Copilot executable (github.exe).',
+      })
+      return
+    }
 
     try {
       let shouldRefreshAuthor = false
@@ -1045,6 +1128,12 @@ export class Preferences extends React.Component<
       dispatcher.setCustomShell(customShell)
     }
 
+    if (enableCopilotAppHandoff() && copilotAppPathChanged) {
+      await dispatcher.setCopilotAppPath(
+        copilotAppPath.length === 0 ? null : copilotAppPath
+      )
+    }
+
     if (
       this.props.useExternalCredentialHelper !==
       this.state.useExternalCredentialHelper
@@ -1097,8 +1186,11 @@ export class Preferences extends React.Component<
     dispatcher.setUnderlineLinksSetting(this.state.underlineLinks)
 
     dispatcher.setDiffCheckMarksSetting(this.state.showDiffCheckMarks)
+    dispatcher.setAlwaysShowWorktreeList(this.state.alwaysShowWorktreeList)
 
-    dispatcher.setSelectedCopilotModels(this.state.selectedCopilotModels)
+    dispatcher.setSelectedCopilotModelsByAccount(
+      this.state.selectedCopilotModelsByAccount
+    )
 
     dispatcher.setAlwaysUseCopilotForConflictResolution(
       this.state.alwaysUseCopilotForConflictResolution
