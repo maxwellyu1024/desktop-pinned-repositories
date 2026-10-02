@@ -135,6 +135,44 @@
     .byline {
       @include ellipsis;
     }
+
+    .byline {
+      // 空间不足时先截断作者/时间，保证右侧短码完整显示
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .commit-sha {
+      // 复位浏览器默认按钮样式
+      border: none;
+      background: transparent;
+      padding: 0;
+      font: inherit;
+
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+      margin-left: auto;
+      padding-left: var(--spacing);
+      font-family: var(--font-family-monospace);
+      // 继承行文字颜色，选中行（反色背景）下同样清晰
+      color: inherit;
+      opacity: 0.75;
+      cursor: pointer;
+
+      .octicon {
+        margin-right: var(--spacing-third);
+      }
+
+      &:hover,
+      &.copied {
+        opacity: 1;
+      }
+
+      &:hover .commit-sha-text {
+        text-decoration: underline;
+      }
+    }
   }
 
   .commit-indicators {

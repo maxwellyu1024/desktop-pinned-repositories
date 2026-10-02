@@ -27,6 +27,7 @@ import { Emoji } from '../../lib/emoji'
 import { enableAccessibleListToolTips } from '../../lib/feature-flag'
 import { TooltippedContent } from '../lib/tooltipped-content'
 import { formatDate } from '../../lib/format-date'
+import { CommitShaCopy } from './commit-sha-copy'
 
 interface ICommitProps {
   readonly gitHubRepository: GitHubRepository | null
@@ -169,6 +170,7 @@ export class CommitListItem extends React.PureComponent<
                 <CommitAttribution avatarUsers={this.state.avatarUsers} />
                 {renderRelativeTime(date, this.props.preferAbsoluteDates)}
               </div>
+              <CommitShaCopy shortSha={commit.shortSha} />
             </div>
           </div>
           {this.renderCommitIndicators()}
