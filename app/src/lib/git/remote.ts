@@ -5,6 +5,7 @@ import { Repository } from '../../models/repository'
 import { IRemote } from '../../models/remote'
 import { envForRemoteOperation } from './environment'
 import { getSymbolicRef } from './refs'
+import { resolveRemoteHostAliases } from '../remote-parsing'
 
 /**
  * List the remotes, sorted alphabetically by `name`, for a repository.
@@ -83,6 +84,9 @@ export async function getRemotes(
     // Remove only Git's final LF; trimEnd() would also remove URL whitespace.
     remotes.push({ name, url: stdout.slice(0, -1) })
   }
+
+  // 预先解析 SSH 主机别名，后续 parseRemote 的同步匹配才能拿到真实主机名
+  await resolveRemoteHostAliases(remotes.map(r => r.url))
 
   return remotes
 }

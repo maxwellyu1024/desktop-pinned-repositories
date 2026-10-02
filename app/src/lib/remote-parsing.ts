@@ -1,3 +1,5 @@
+import { sshHostAliasResolver } from './ssh/ssh-host-alias'
+
 export type GitProtocol = 'ssh' | 'https'
 
 interface IGitRemoteURL {
@@ -51,8 +53,8 @@ const remoteRegexes: ReadonlyArray<{ protocol: GitProtocol; regex: RegExp }> = [
   },
 ]
 
-/** Parse the remote information from URL. */
-export function parseRemote(url: string): IGitRemoteURL | null {
+/** Parse the remote information from URL without resolving SSH aliases. */
+function parseRemoteURL(url: string): IGitRemoteURL | null {
   for (const { protocol, regex } of remoteRegexes) {
     const match = regex.exec(url)
     if (match !== null && match.length >= 4) {
@@ -61,6 +63,46 @@ export function parseRemote(url: string): IGitRemoteURL | null {
   }
 
   return null
+}
+
+/**
+ * Parse the remote information from URL.
+ *
+ * For SSH remotes the hostname is the one SSH actually connects to, so a host
+ * alias from the user's SSH configuration (e.g. `git@work:owner/name.git`)
+ * yields the real host once it has been resolved by
+ * `resolveRemoteHostAliases`.
+ */
+export function parseRemote(url: string): IGitRemoteURL | null {
+  const parsed = parseRemoteURL(url)
+
+  if (parsed === null || parsed.protocol !== 'ssh') {
+    return parsed
+  }
+
+  return {
+    ...parsed,
+    hostname: sshHostAliasResolver.getHostname(parsed.hostname),
+  }
+}
+
+/**
+ * Resolve the SSH host aliases used by the given remote URLs so that
+ * subsequent calls to `parseRemote` return the real hostnames.
+ */
+export async function resolveRemoteHostAliases(
+  urls: ReadonlyArray<string>
+): Promise<void> {
+  const hosts = new Array<string>()
+
+  for (const url of urls) {
+    const parsed = parseRemoteURL(url)
+    if (parsed !== null && parsed.protocol === 'ssh') {
+      hosts.push(parsed.hostname)
+    }
+  }
+
+  await sshHostAliasResolver.resolve(hosts)
 }
 
 export interface IRepositoryIdentifier {

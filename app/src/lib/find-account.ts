@@ -1,6 +1,10 @@
 import * as URL from 'url'
 import { getHTMLURL, API } from './api'
-import { parseRemote, parseRepositoryIdentifier } from './remote-parsing'
+import {
+  parseRemote,
+  parseRepositoryIdentifier,
+  resolveRemoteHostAliases,
+} from './remote-parsing'
 import { Account, isDotComAccount } from '../models/account'
 
 type RepositoryLookupFunc = (
@@ -52,6 +56,7 @@ export async function findAccountForRemoteURL(
   //    1. If that works, find the first account that can access it.
   //  3. And if all that fails then throw our hands in the air because we
   //     truly don't care.
+  await resolveRemoteHostAliases([urlOrRepositoryAlias])
   const parsedURL = parseRemote(urlOrRepositoryAlias)
   if (parsedURL) {
     const account =
