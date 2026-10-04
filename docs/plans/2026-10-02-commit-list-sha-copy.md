@@ -22,11 +22,14 @@
 
 在 `.description` 中 `.byline` 之后渲染 `<CommitShaCopy shortSha={commit.shortSha} />`。
 
+标签与未推送指示（`.commit-indicators`）渲染在标题行 `.summary-line` 右侧，而不是 `.info` 外的独立列：独立列会占用第二行宽度，使有指示的提交短码偏左，与其他提交的短码不在同一列。
+
 ### 3. `app/styles/ui/history/_commit-list.scss`
 
 - `.byline`：`flex: 1 1 auto; min-width: 0;`，空间不足时先截断作者/时间。
-- `.commit-sha`：`margin-left: auto; flex-shrink: 0;`，等宽字体、无边框背景；hover 时显示下划线和指针。
-- 颜色用 `color: inherit` + `opacity: 0.75`，继承行文字颜色，选中行（反色背景）下无需额外覆盖。
+- `.summary-line`：标题 `flex: 1 1 auto` 截断，指示 `flex: 0 1 auto` 靠右。
+- `.commit-sha`：`margin-left: auto; flex-shrink: 0;`，无边框背景；hover 时显示下划线和指针。
+- 字体与提交详情头部短码（`.ecs-meta-item.commit-ref`）一致：界面字体、`--font-size-sm`、`color: inherit`（选中行反色背景下无需额外覆盖）。
 
 ### 4. 测试 `app/test/unit/ui/commit-sha-copy-test.tsx`
 

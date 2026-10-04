@@ -154,12 +154,17 @@ export class CommitListItem extends React.PureComponent<
           onMouseUp={this.onMouseUp}
         >
           <div className="info">
-            <RichText
-              className={summaryClassNames}
-              emoji={this.props.emoji}
-              text={commitSummary}
-              renderUrlsAsLinks={false}
-            />
+            {/* 标签与未推送指示放在标题行右侧，不占用第二行宽度，
+                使所有提交的短码右侧对齐在同一列 */}
+            <div className="summary-line">
+              <RichText
+                className={summaryClassNames}
+                emoji={this.props.emoji}
+                text={commitSummary}
+                renderUrlsAsLinks={false}
+              />
+              {this.renderCommitIndicators()}
+            </div>
             <div className="description">
               <AvatarStack
                 users={this.state.avatarUsers}
@@ -173,7 +178,6 @@ export class CommitListItem extends React.PureComponent<
               <CommitShaCopy shortSha={commit.shortSha} />
             </div>
           </div>
-          {this.renderCommitIndicators()}
         </div>
       </Draggable>
     )

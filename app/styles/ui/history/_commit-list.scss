@@ -117,9 +117,22 @@
     overflow: hidden;
     min-width: 50px;
 
+    .summary-line {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      min-width: 0;
+
+      .summary {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+    }
+
     .description {
       display: flex;
       flex-direction: row;
+      align-items: center;
       margin-top: 3px;
     }
 
@@ -154,19 +167,14 @@
       flex-shrink: 0;
       margin-left: auto;
       padding-left: var(--spacing);
-      font-family: var(--font-family-monospace);
-      // 继承行文字颜色，选中行（反色背景）下同样清晰
+      // 与提交详情头部的短码（.ecs-meta-item.commit-ref）保持一致：
+      // 界面字体、小号字、行文字颜色（选中行反色背景下同样清晰）
+      font-size: var(--font-size-sm);
       color: inherit;
-      opacity: 0.75;
       cursor: pointer;
 
       .octicon {
         margin-right: var(--spacing-third);
-      }
-
-      &:hover,
-      &.copied {
-        opacity: 1;
       }
 
       &:hover .commit-sha-text {
@@ -178,7 +186,8 @@
   .commit-indicators {
     display: flex;
     flex-flow: nowrap row;
-    flex: 1 1 auto;
+    // 位于标题行右侧，空间优先留给标题
+    flex: 0 1 auto;
     justify-content: flex-end;
     margin-left: var(--spacing);
     color: var(--list-item-badge-color);
