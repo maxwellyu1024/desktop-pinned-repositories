@@ -1,4 +1,6 @@
 import * as React from 'react'
+import { IIdentity } from '../models/identity'
+import { IRepositoryIdentityState } from '../lib/identity/repository-identity'
 import { Repository } from '../models/repository'
 import { Commit, CommitOneLine } from '../models/commit'
 import { TipState } from '../models/tip'
@@ -41,6 +43,9 @@ interface IRepositoryViewProps {
   readonly repository: Repository
   readonly state: IRepositoryState
   readonly dispatcher: Dispatcher
+  readonly identities: ReadonlyArray<IIdentity>
+  /** The repository's identity, null while it's being read. */
+  readonly identityState: IRepositoryIdentityState | null
   readonly emoji: Map<string, Emoji>
   readonly sidebarWidth: IConstrainedValue
   readonly commitSummaryWidth: IConstrainedValue
@@ -282,6 +287,8 @@ export class RepositoryView extends React.Component<
         aheadBehind={this.props.state.aheadBehind}
         branch={branchName}
         commitAuthor={this.props.state.commitAuthor}
+        identities={this.props.identities}
+        identityState={this.props.identityState}
         emoji={this.props.emoji}
         mostRecentLocalCommit={mostRecentLocalCommit}
         issuesStore={this.props.issuesStore}

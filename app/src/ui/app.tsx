@@ -4187,6 +4187,11 @@ export class App extends React.Component<IAppProps, IAppState> {
           repository={selectedState.repository}
           state={selectedState.state}
           dispatcher={this.props.dispatcher}
+          identities={state.identities}
+          identityState={
+            state.repositoryIdentityStates.get(selectedState.repository.id) ??
+            null
+          }
           emoji={state.emoji}
           sidebarWidth={state.sidebarWidth}
           commitSummaryWidth={state.commitSummaryWidth}

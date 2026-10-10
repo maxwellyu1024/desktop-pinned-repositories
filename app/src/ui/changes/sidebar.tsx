@@ -1,5 +1,7 @@
 import * as Path from 'path'
 import * as React from 'react'
+import { IIdentity } from '../../models/identity'
+import { IRepositoryIdentityState } from '../../lib/identity/repository-identity'
 
 import { DiffSelectionType } from '../../models/diff'
 import {
@@ -48,6 +50,9 @@ interface IChangesSidebarProps {
   readonly aheadBehind: IAheadBehind | null
   readonly dispatcher: Dispatcher
   readonly commitAuthor: CommitIdentity | null
+  readonly identities: ReadonlyArray<IIdentity>
+  /** The repository's identity, null while it's being read. */
+  readonly identityState: IRepositoryIdentityState | null
   readonly branch: string | null
   readonly emoji: Map<string, Emoji>
   readonly mostRecentLocalCommit: Commit | null
@@ -457,6 +462,8 @@ export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
           onOpenItem={this.onOpenItem}
           onRowClick={this.onChangedItemClick}
           commitAuthor={this.props.commitAuthor}
+          identities={this.props.identities}
+          identityState={this.props.identityState}
           branch={this.props.branch}
           commitMessage={commitMessage}
           focusCommitMessage={this.props.focusCommitMessage}

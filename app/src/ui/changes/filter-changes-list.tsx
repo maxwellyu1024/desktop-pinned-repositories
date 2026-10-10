@@ -1,4 +1,6 @@
 import * as React from 'react'
+import { IIdentity, RepositoryIdentityBinding } from '../../models/identity'
+import { IRepositoryIdentityState } from '../../lib/identity/repository-identity'
 import * as Path from 'path'
 
 import { Dispatcher } from '../dispatcher'
@@ -156,6 +158,9 @@ interface IFilterChangesListProps {
    */
   readonly branch: string | null
   readonly commitAuthor: CommitIdentity | null
+  readonly identities: ReadonlyArray<IIdentity>
+  /** The repository's identity, null while it's being read. */
+  readonly identityState: IRepositoryIdentityState | null
   readonly dispatcher: Dispatcher
   readonly availableWidth: number
   readonly isCommitting: boolean
@@ -956,6 +961,12 @@ export class FilterChangesList extends React.Component<
         branch={this.props.branch}
         mostRecentLocalCommit={this.props.mostRecentLocalCommit}
         commitAuthor={this.props.commitAuthor}
+        identity={{
+          identities: this.props.identities,
+          state: this.props.identityState,
+          onSwitch: this.onSwitchIdentity,
+          onApply: this.onApplyIdentity,
+        }}
         isShowingModal={this.props.isShowingModal}
         isShowingFoldout={this.props.isShowingFoldout}
         anyFilesSelected={anyFilesSelected}
@@ -1074,6 +1085,17 @@ export class FilterChangesList extends React.Component<
   }
 
   private onShowPopup = (p: Popup) => this.props.dispatcher.showPopup(p)
+
+  private onSwitchIdentity = (binding: RepositoryIdentityBinding) => {
+    this.props.dispatcher.switchRepositoriesIdentity(
+      [this.props.repository],
+      binding
+    )
+  }
+
+  private onApplyIdentity = () => {
+    this.props.dispatcher.applyRepositoriesIdentity([this.props.repository])
+  }
   private onShowFoldout = (f: Foldout) => this.props.dispatcher.showFoldout(f)
 
   private onCommitSpellcheckEnabledChanged = (enabled: boolean) =>

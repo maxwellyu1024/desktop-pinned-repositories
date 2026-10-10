@@ -54,7 +54,7 @@
 | --- | --- |
 | 仓库列表右键、工具栏仓库右键 | “身份”子菜单 |
 | 管理仓库 | 批量操作中的“身份”菜单按钮，作用于选中仓库 |
-| 提交区 | 作者头像旁显示当前身份标签，未设置好时带警告标记；点击弹出同一菜单 |
+| 提交区 | 描述框下方操作栏靠右显示当前身份名（不挤占摘要输入框），未设置好时为警告图标；点击弹出同一菜单 |
 | 偏好设置身份页 | 每个身份的“N 个未设置好”可点击，打开管理仓库并定位到该身份未设置好的仓库 |
 
 管理仓库的身份分组：每个身份一组；某身份有未设置好的仓库时，紧随其后增加“<身份>，未设置好”分组；
@@ -102,11 +102,11 @@
 | `models/banner.ts` | `IdentitySwitched` 横幅（摘要、撤销） |
 | `lib/stores/app-store.ts` | `_switchRepositoriesIdentity`、`_applyRepositoriesIdentity`、`_undoIdentitySwitch` |
 | `ui/identities/identity-menu.ts` | 共用身份菜单 |
-| `ui/changes/commit-identity.tsx` | 提交区身份标签 |
+| `ui/changes/commit-identity.tsx` | 提交区身份按钮 |
 
 ## 验证
 
-- 单元测试：别名优先匹配、无规则身份、菜单项、推荐后果分类、快照与撤销的写入内容。
+- 单元测试：别名优先匹配、无规则身份、菜单项、推荐后果分类、快照与撤销的写入内容、`writeLocalConfig` 往返、提交区身份按钮。
 - 用本机仓库只读模拟：添加推荐后各推荐的补写 / 冲突数；冲突仓库列表应为 `jnc`、作者名为
   maxwellyu1024 的 2 个、Phosmax 下 4 个 `git@github.com` 仓库。
 - 目测只用开发版（userData `GHDock-dev`）。

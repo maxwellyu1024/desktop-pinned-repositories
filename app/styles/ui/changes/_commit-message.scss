@@ -281,6 +281,52 @@
       }
     }
 
+    // 身份按钮靠右，显示身份名，未设置好时为警告图标
+    .commit-identity-button {
+      border: none;
+      border-radius: 0px;
+      -webkit-appearance: none;
+      background: transparent;
+      padding: 0;
+      margin: 0 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-third);
+      min-width: 0;
+      height: 17px;
+      color: var(--text-secondary-color);
+      font-size: var(--font-size-sm);
+      cursor: pointer;
+
+      &:not([aria-disabled='true']):hover {
+        color: var(--text-color);
+      }
+
+      &:disabled {
+        pointer-events: none;
+      }
+
+      &:focus {
+        outline-offset: 2px;
+      }
+
+      svg {
+        flex-shrink: 0;
+        height: 13px;
+        pointer-events: none;
+      }
+
+      .commit-identity-warning {
+        color: var(--dialog-warning-color);
+      }
+
+      .commit-identity-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+
     .co-authors-toggle,
     .copilot-button,
     .commit-options-button {

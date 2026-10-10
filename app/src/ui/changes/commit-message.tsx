@@ -71,6 +71,7 @@ import { getAccountForCommitMessageGeneration } from '../../lib/get-account-for-
 import { AriaLiveContainer } from '../accessibility/aria-live-container'
 import { HookProgress } from '../../lib/git'
 import { assertNever } from '../../lib/fatal-error'
+import { CommitIdentityButton, ICommitIdentity } from './commit-identity'
 
 const addAuthorIcon: OcticonSymbolVariant = {
   w: 18,
@@ -94,6 +95,10 @@ interface ICommitMessageProps {
   readonly onCreateCommit: (context: ICommitContext) => Promise<boolean>
   readonly branch: string | null
   readonly commitAuthor: CommitIdentity | null
+
+  /** The identity to commit with, not shown when not given. */
+  readonly identity?: ICommitIdentity
+
   readonly anyFilesSelected: boolean
   readonly filesToBeCommittedCount?: number
   /** Whether the user can see all the files to commit in the changes list. They
@@ -1244,7 +1249,24 @@ export class CommitMessage extends React.Component<
         {this.renderCoAuthorToggleButton()}
         {this.renderCopilotButton()}
         {this.renderCommitOptionsButton()}
+        {this.renderIdentityButton()}
       </div>
+    )
+  }
+
+  private renderIdentityButton() {
+    const { identity, repository, isCommitting, isGeneratingCommitMessage } =
+      this.props
+    if (identity === undefined) {
+      return null
+    }
+
+    return (
+      <CommitIdentityButton
+        {...identity}
+        repository={repository}
+        disabled={isCommitting === true || isGeneratingCommitMessage === true}
+      />
     )
   }
 
