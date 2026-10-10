@@ -5,6 +5,7 @@ import { assertNonNullable } from '../fatal-error'
 import { GitHubAccountType } from '../api'
 import { caseInsensitiveCompare } from '../compare'
 import * as Path from 'path'
+import { IIdentity, RepositoryIdentityBinding } from '../../models/identity'
 
 export interface IDatabaseOwner {
   readonly id?: number
@@ -82,6 +83,14 @@ export interface IDatabaseRepository {
    * of Git and GitHub.
    */
   readonly isTutorialRepository?: boolean
+
+  /** How the repository chooses its identity, automatic when missing. */
+  readonly identity?: RepositoryIdentityBinding
+}
+
+/** An identity, stored in the user's order of precedence. */
+export interface IDatabaseIdentity extends IIdentity {
+  readonly order: number
 }
 
 /**
@@ -109,6 +118,9 @@ export class RepositoriesDatabase extends BaseDatabase {
 
   /** The GitHub repository owners table. */
   public declare owners: Dexie.Table<IDatabaseOwner, number>
+
+  /** The identities repositories commit and push as, keyed by ID. */
+  public declare identities: Dexie.Table<IDatabaseIdentity, string>
 
   /**
    * Initialize a new repository database.
@@ -155,6 +167,7 @@ export class RepositoriesDatabase extends BaseDatabase {
     this.conditionalVersion(8, {}, ensureNoUndefinedParentID)
     this.conditionalVersion(9, { owners: '++id, &key' }, createOwnerKey)
     this.conditionalVersion(10, {}, migratePinnedState)
+    this.conditionalVersion(11, { identities: 'id' })
   }
 }
 

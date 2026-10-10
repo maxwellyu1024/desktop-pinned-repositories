@@ -28,6 +28,12 @@ import { WorkflowPreferences } from '../../models/workflow-preferences'
 import { clearTagsToPush } from './helpers/tags-to-push-storage'
 import { IMatchedGitHubRepository } from '../repository-matching'
 import { shallowEquals } from '../equality'
+import {
+  AutomaticIdentityBinding,
+  IIdentity,
+  RepositoryIdentityBinding,
+} from '../../models/identity'
+import { Disposable } from 'event-kit'
 
 type AddRepositoryOptions = {
   missing?: boolean
@@ -155,7 +161,8 @@ export class RepositoriesStore extends TypedBaseStore<
       repo.isTutorialRepository,
       repo.gitDir,
       repo.mainWorktreePath,
-      repo.pinOrder ?? null
+      repo.pinOrder ?? null,
+      repo.identity
     )
   }
 
@@ -310,6 +317,20 @@ export class RepositoriesStore extends TypedBaseStore<
     this.emitUpdatedRepositories()
   }
 
+  /** Set how the given repositories choose their identity. */
+  public async updateRepositoriesIdentity(
+    repositories: ReadonlyArray<Repository>,
+    identity: RepositoryIdentityBinding
+  ): Promise<void> {
+    await this.db.transaction('rw', this.db.repositories, () =>
+      Promise.all(
+        repositories.map(r => this.db.repositories.update(r.id, { identity }))
+      )
+    )
+
+    this.emitUpdatedRepositories()
+  }
+
   /** Update the repository's `missing` flag. */
   public async updateRepositoryMissing(
     repository: Repository,
@@ -329,7 +350,8 @@ export class RepositoriesStore extends TypedBaseStore<
       repository.isTutorialRepository,
       repository.gitDir,
       repository.mainWorktreePath,
-      repository.pinOrder
+      repository.pinOrder,
+      repository.identity
     )
   }
 
@@ -352,7 +374,8 @@ export class RepositoriesStore extends TypedBaseStore<
       repository.isTutorialRepository,
       gitDir,
       repository.mainWorktreePath,
-      repository.pinOrder
+      repository.pinOrder,
+      repository.identity
     )
   }
 
@@ -476,7 +499,8 @@ export class RepositoriesStore extends TypedBaseStore<
       repository.isTutorialRepository,
       gitDir,
       mainWorktreePath,
-      repository.pinOrder
+      repository.pinOrder,
+      repository.identity
     )
   }
 
@@ -530,7 +554,8 @@ export class RepositoriesStore extends TypedBaseStore<
         repository.isTutorialRepository,
         gitDir,
         mainWorktreePath,
-        repository.pinOrder
+        repository.pinOrder,
+        repository.identity
       ),
       existingRepository: false,
     }
@@ -681,7 +706,8 @@ export class RepositoriesStore extends TypedBaseStore<
       repo.isTutorialRepository,
       repo.gitDir,
       repo.mainWorktreePath,
-      repo.pinOrder
+      repo.pinOrder,
+      repo.identity
     )
 
     assertIsRepositoryWithGitHubRepository(updatedRepo)
@@ -897,6 +923,54 @@ export class RepositoriesStore extends TypedBaseStore<
    * Helper method to emit updates consistently
    * (This is the only way we emit updates from this store.)
    */
+  /** The identities in order of precedence. */
+  public async getIdentities(): Promise<ReadonlyArray<IIdentity>> {
+    const records = await this.db.identities.toArray()
+    return records
+      .sort((a, b) => a.order - b.order)
+      .map(({ order, ...identity }) => identity)
+  }
+
+  /**
+   * Replace all identities. Repositories using an identity that's no longer
+   * in the list go back to choosing one automatically.
+   */
+  public async saveIdentities(
+    identities: ReadonlyArray<IIdentity>
+  ): Promise<void> {
+    const ids = new Set(identities.map(i => i.id))
+    let orphaned = 0
+
+    await this.db.transaction(
+      'rw',
+      this.db.identities,
+      this.db.repositories,
+      async () => {
+        await this.db.identities.clear()
+        await this.db.identities.bulkPut(
+          identities.map((identity, order) => ({ ...identity, order }))
+        )
+        orphaned = await this.db.repositories
+          .filter(
+            r => r.identity?.kind === 'identity' && !ids.has(r.identity.id)
+          )
+          .modify({ identity: AutomaticIdentityBinding })
+      }
+    )
+
+    this.emitter.emit('did-update-identities', identities)
+    if (orphaned > 0) {
+      this.emitUpdatedRepositories()
+    }
+  }
+
+  /** Register a function to be called when the identities change. */
+  public onDidUpdateIdentities(
+    fn: (identities: ReadonlyArray<IIdentity>) => void
+  ): Disposable {
+    return this.emitter.on('did-update-identities', fn)
+  }
+
   private emitUpdatedRepositories() {
     if (!this.emitQueued) {
       setImmediate(() => {

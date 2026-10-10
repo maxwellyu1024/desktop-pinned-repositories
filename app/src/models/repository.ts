@@ -8,6 +8,7 @@ import {
 } from './workflow-preferences'
 import { assertNever, fatalError } from '../lib/fatal-error'
 import { createEqualityHash } from './equality-hash'
+import { AutomaticIdentityBinding, RepositoryIdentityBinding } from './identity'
 
 function getBaseName(path: string): string {
   const baseName = Path.basename(path)
@@ -70,7 +71,9 @@ export class Repository {
      * The position of this repository in the pinned group of the repository
      * list, lower values first, or null if the user hasn't pinned it.
      */
-    public readonly pinOrder: number | null = null
+    public readonly pinOrder: number | null = null,
+    /** How the repository chooses the identity it commits and pushes as. */
+    public readonly identity: RepositoryIdentityBinding = AutomaticIdentityBinding
   ) {
     this.name = (gitHubRepository && gitHubRepository.name) || getBaseName(path)
 
@@ -82,7 +85,9 @@ export class Repository {
       this.alias,
       this.workflowPreferences.forkContributionTarget,
       this.isTutorialRepository,
-      this.pinOrder
+      this.pinOrder,
+      this.identity.kind,
+      this.identity.kind === 'identity' ? this.identity.id : null
     )
   }
 
