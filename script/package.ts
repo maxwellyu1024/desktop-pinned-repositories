@@ -25,6 +25,7 @@ import { computeBundleHashSync } from '../app/src/lib/compute-bundle-hash'
 import { rename } from 'fs/promises'
 import { join } from 'path'
 import { assertNonNullable } from '../app/src/lib/fatal-error'
+import { packageLinux } from './package-linux'
 
 const distPath = getDistPath()
 const productName = getProductName()
@@ -40,6 +41,8 @@ if (process.platform === 'darwin') {
   packageOSX()
 } else if (process.platform === 'win32') {
   packageWindows()
+} else if (process.platform === 'linux') {
+  packageLinux()
 } else {
   console.error(`I don't know how to package for ${process.platform} :(`)
   process.exit(1)

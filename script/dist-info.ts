@@ -1,7 +1,13 @@
 import * as Path from 'path'
 import * as Fs from 'fs'
 
-import { getProductName, getVersion } from '../app/package-info'
+import {
+  getLinuxExecutableName,
+  getProductName,
+  getVersion,
+  getWindowsIdentifierName,
+  isOfficialApp,
+} from '../app/package-info'
 import { join } from 'path'
 
 const productName = getProductName()
@@ -26,7 +32,7 @@ export function getExecutableName() {
   if (process.platform === 'win32') {
     return `${getWindowsIdentifierName()}${suffix}`
   } else if (process.platform === 'linux') {
-    return 'desktop'
+    return getLinuxExecutableName()
   } else {
     return productName
   }
@@ -94,9 +100,7 @@ export function getWindowsDeltaNugetPackagePath() {
   )
 }
 
-export function getWindowsIdentifierName() {
-  return 'GitHubDesktop'
-}
+export { getWindowsIdentifierName }
 
 export function getBundleSizes() {
   const outPath = Path.join(projectRoot, 'out')
@@ -147,7 +151,8 @@ export function getUpdatesURL() {
 export function shouldMakeDelta() {
   // Only production and beta channels include deltas. Test releases aren't
   // necessarily sequential so deltas wouldn't make sense.
-  return ['production', 'beta'].includes(getChannel())
+  // fork 没有自己的更新源，不能基于官方发布做差分
+  return isOfficialApp() && ['production', 'beta'].includes(getChannel())
 }
 
 /**

@@ -103,7 +103,7 @@ function writeBatchScriptCLITrampoline(binPath: string): Promise<void> {
   )
 
   const trampoline = `@echo off\n"%~dp0\\${versionedPath}" %*`
-  const trampolinePath = Path.join(binPath, 'github.bat')
+  const trampolinePath = Path.join(binPath, `${__CLI_NAME__}.bat`)
 
   return writeFile(trampolinePath, trampoline)
 }
@@ -121,7 +121,7 @@ function writeShellScriptCLITrampoline(binPath: string): Promise<void> {
   const trampoline = `#!/usr/bin/env bash
   DIR="$( cd "$( dirname "\$\{BASH_SOURCE[0]\}" )" && pwd )"
   sh "$DIR/${versionedPath}" "$@"`
-  const trampolinePath = Path.join(binPath, 'github')
+  const trampolinePath = Path.join(binPath, __CLI_NAME__)
 
   return writeFile(trampolinePath, trampoline, { encoding: 'utf8', mode: 755 })
 }

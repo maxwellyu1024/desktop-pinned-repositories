@@ -303,6 +303,20 @@ function copyStaticResources() {
     force: false,
     verbatimSymlinks: true,
   })
+
+  if (process.platform === 'win32') {
+    // CLI 脚本按可执行文件名启动应用，fork 的 Windows 标识与官方不同
+    for (const script of ['github.bat', 'github.sh']) {
+      const scriptPath = path.join(destination, script)
+      writeFileSync(
+        scriptPath,
+        readFileSync(scriptPath, 'utf8').replaceAll(
+          'GitHubDesktop.exe',
+          `${getExecutableName()}.exe`
+        )
+      )
+    }
+  }
 }
 
 function moveAnalysisFiles() {

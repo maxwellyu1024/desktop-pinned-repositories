@@ -1,5 +1,5 @@
-# fork 专用：推送 development 后自动打包 macOS arm64 安装包。
-# 不依赖任何签名证书或密钥，采用与本地一致的临时签名（ad-hoc）。
+# fork 专用：推送 development 后自动打包 macOS / Windows / Ubuntu 安装包。
+# 不依赖任何签名证书或密钥：macOS 采用临时签名（ad-hoc），Windows 不签名。
 name: Fork Package
 
 on:
@@ -17,54 +17,91 @@ env:
   RELEASE_TAG: development-latest
 
 jobs:
-  package-macos:
-    name: Package macOS arm64
+  package:
+    name: Package ${{ matrix.friendlyName }} ${{ matrix.arch }}
     # 只在 fork 中运行，上游仓库不受影响
     if: github.repository != 'desktop/desktop'
-    runs-on: macos-14
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 60
-    permissions:
-      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            friendlyName: macOS
+            arch: arm64
+            artifacts: dist/*-arm64.zip
+          - os: windows-2022
+            friendlyName: Windows
+            arch: x64
+            artifacts: |
+              dist/*Setup-x64.exe
+              dist/*Setup-x64.msi
+          # 在较旧的 glibc 上构建，兼容 Ubuntu 22.04 与 24.04
+          - os: ubuntu-22.04
+            friendlyName: Ubuntu
+            arch: x64
+            artifacts: dist/*.deb
+    env:
+      npm_config_arch: ${{ matrix.arch }}
+      TARGET_ARCH: ${{ matrix.arch }}
     steps:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev
       - uses: ./.github/actions/setup-ci-environment
         with:
           node-version: ${{ env.NODE_VERSION }}
-          arch: arm64
-      # GITHUB_ACTIONS=false 让构建脚本走本地流程，跳过官方的钥匙串与公证步骤
+          arch: ${{ matrix.arch }}
+      # GITHUB_* 默认变量不能在 env 中覆盖，只能在命令中设置；
+      # 置为 false 让构建脚本走本地流程，跳过官方的钥匙串、公证与 Azure 签名步骤
       - name: Build production app
-        run: yarn build:prod
-        env:
-          GITHUB_ACTIONS: 'false'
-          npm_config_arch: arm64
-          TARGET_ARCH: arm64
+        shell: bash
+        run: GITHUB_ACTIONS=false yarn build:prod
       - name: Ad-hoc sign app
+        if: runner.os == 'macOS'
         run: |
           app=$(ls -d dist/*-darwin-arm64/*.app)
           codesign --force --deep --sign - "$app"
           codesign --verify --deep --strict "$app"
       - name: Package app
-        run: yarn package
-        env:
-          GITHUB_ACTIONS: 'false'
-          npm_config_arch: arm64
-          TARGET_ARCH: arm64
-      - name: Upload artifact
+        shell: bash
+        run: GITHUB_ACTIONS=false yarn package
+      - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: macOS-arm64
-          path: dist/*-arm64.zip
+          name: ${{ matrix.friendlyName }}-${{ matrix.arch }}
+          path: ${{ matrix.artifacts }}
+          if-no-files-found: error
           retention-days: 30
+
+  release:
+    name: Publish rolling prerelease
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
       # 滚动更新同一个预发布版本，始终指向 development 最新一次构建
-      - name: Publish rolling prerelease
+      - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           gh release delete "$RELEASE_TAG" --cleanup-tag --yes || true
-          gh release create "$RELEASE_TAG" dist/*-arm64.zip \
+          gh release create "$RELEASE_TAG" artifacts/* \
             --target "$GITHUB_SHA" \
             --prerelease \
             --title "Development build (${GITHUB_SHA::7})" \
-            --notes "development 分支 ${GITHUB_SHA} 的自动构建（macOS arm64，临时签名）。首次打开需右键 → 打开。"
+            --notes "development 分支 ${GITHUB_SHA} 的自动构建。
+
+          - macOS（Apple Silicon）：解压 zip，首次打开需右键 → 打开（临时签名）。
+          - Windows（x64）：运行 Setup.exe（未签名，SmartScreen 提示时选择“仍要运行”）。
+          - Ubuntu（x64）：sudo apt install ./*.deb"

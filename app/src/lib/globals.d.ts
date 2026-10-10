@@ -37,6 +37,12 @@ declare const __OFFICIAL_APP__: boolean
 declare const __CLI_NAME__: string
 
 /**
+ * The Windows identity of the app: executable name, Squirrel package name and
+ * install directory.
+ */
+declare const __WINDOWS_IDENTIFIER__: string
+
+/**
  * The current version of the app, this is intended to be a compile-time
  * replacement for app.getVersion
  * (https://www.electronjs.org/docs/latest/api/app#appgetname)
