@@ -24,6 +24,15 @@ interface INoRepositoriesProps {
   /** A function to call when the user chooses to add a local repository. */
   readonly onAdd: () => void
 
+  /** Called when the user chooses to add repositories known to other apps. */
+  readonly onAddFromApps: () => void
+
+  /** Called when the user chooses to add the repositories in a folder. */
+  readonly onAddFromFolder: () => void
+
+  /** Called when the user chooses to import a configuration file. */
+  readonly onImportConfiguration: () => void
+
   /** Called when the user chooses to create a tutorial repository */
   readonly onCreateTutorialRepository: () => void
 
@@ -353,6 +362,51 @@ export class NoRepositoriesView extends React.Component<
     )
   }
 
+  private renderImportButton(
+    symbol: OcticonSymbol,
+    title: string,
+    onClick: () => void
+  ) {
+    return (
+      <Button onClick={onClick}>
+        <Octicon symbol={symbol} />
+        <span>{title}</span>
+      </Button>
+    )
+  }
+
+  /** Ways to bring in many repositories at once. */
+  private renderImportActions() {
+    return (
+      <div
+        className="import-actions"
+        role="group"
+        aria-labelledby="import-actions-title"
+      >
+        <h2 id="import-actions-title">Already have repositories?</h2>
+        {this.renderImportButton(
+          octicons.apps,
+          __DARWIN__
+            ? 'Add Repositories from Other Apps…'
+            : 'Add repositories from other apps…',
+          this.props.onAddFromApps
+        )}
+        {this.renderImportButton(
+          octicons.fileDirectory,
+          __DARWIN__
+            ? 'Add Repositories from Folder…'
+            : 'Add repositories from folder…',
+          this.props.onAddFromFolder
+        )}
+        {this.renderImportButton(
+          octicons.download,
+          __DARWIN__ ? 'Import Configuration…' : 'Import configuration…',
+          this.props.onImportConfiguration
+        )}
+      </div>
+    )
+  }
+
   private renderGetStartedActions() {
     return (
       <div className="content-pane">
@@ -363,11 +417,13 @@ export class NoRepositoriesView extends React.Component<
           {this.renderAddExistingRepositoryButton()}
         </div>
 
+        {this.renderImportActions()}
+
         <div className="drag-drop-info">
           <Octicon symbol={octicons.lightBulb} />
           <div>
             <strong>ProTip!</strong> You can drag &amp; drop an existing
-            repository folder here to add it to Desktop
+            repository folder here to add it to {__APP_NAME__}
           </div>
         </div>
       </div>

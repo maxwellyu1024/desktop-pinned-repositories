@@ -537,17 +537,15 @@ export class App extends React.Component<IAppProps, IAppState> {
       case 'clone-repository':
         return this.showCloneRepo()
       case 'add-repositories-from-folder':
-        return this.props.dispatcher.showAddRepositoriesFromFolder()
+        return this.showAddRepositoriesFromFolder()
       case 'add-repositories-from-apps':
-        return this.props.dispatcher.showPopup({
-          type: PopupType.AddRepositoriesFromApps,
-        })
+        return this.showAddRepositoriesFromApps()
       case 'manage-repositories':
         return this.props.dispatcher.showPopup({
           type: PopupType.ManageRepositories,
         })
       case 'import-configuration':
-        return this.props.dispatcher.showImportConfiguration()
+        return this.showImportConfiguration()
       case 'export-configuration':
         return this.props.dispatcher.exportConfiguration()
       case 'show-about':
@@ -863,6 +861,20 @@ export class App extends React.Component<IAppProps, IAppState> {
 
   private showAddLocalRepo = () => {
     return this.props.dispatcher.showPopup({ type: PopupType.AddRepository })
+  }
+
+  private showAddRepositoriesFromApps = () => {
+    return this.props.dispatcher.showPopup({
+      type: PopupType.AddRepositoriesFromApps,
+    })
+  }
+
+  private showAddRepositoriesFromFolder = () => {
+    return this.props.dispatcher.showAddRepositoriesFromFolder()
+  }
+
+  private showImportConfiguration = () => {
+    return this.props.dispatcher.showImportConfiguration()
   }
 
   private showCreateRepository = () => {
@@ -4086,6 +4098,9 @@ export class App extends React.Component<IAppProps, IAppState> {
           onCreate={this.showCreateRepository}
           onClone={this.showCloneRepo}
           onAdd={this.showAddLocalRepo}
+          onAddFromApps={this.showAddRepositoriesFromApps}
+          onAddFromFolder={this.showAddRepositoriesFromFolder}
+          onImportConfiguration={this.showImportConfiguration}
           onCreateTutorialRepository={this.showCreateTutorialRepositoryPopup}
           onResumeTutorialRepository={this.onResumeTutorialRepository}
           tutorialPaused={this.isTutorialPaused()}
