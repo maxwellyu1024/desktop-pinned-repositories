@@ -64,7 +64,7 @@
 - [x] 修正 Apply Identities 默认勾选：添加推荐身份后不再默认覆盖仓库已有的作者与远程地址（原先按“用户明确选择”处理）；
   覆盖只在用户为仓库选择身份、或值由同一身份写入时默认勾选；保存身份后只检查身份或身份内容变化的仓库。
   已用本机仓库模拟：添加 4 个推荐身份后 43 个仓库待确认，默认只补写未设置的作者，`jnc` 等已有不同作者的仓库不勾选。
-- [ ] 用户替换 `/Applications/GHDock.app` 为 `dist/GHDock-darwin-arm64/GHDock.app`（6e94f5792b 重新打包，含仓库身份与修正后的推荐，未签名）。
+- [ ] 用户替换 `/Applications/GHDock.app` 为 `dist/GHDock-darwin-arm64/GHDock.app`（da80a9f7d6 重新打包，含仓库身份、修正后的推荐与默认勾选，未签名）。
 - [ ] 第 6 步：GitLab 实现。
 - [ ] 第 7 步：Gitea / Forgejo 实现。
 - [ ] 第 8 步：Bitbucket Cloud 实现。
