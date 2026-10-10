@@ -141,9 +141,15 @@ interface IIdentity {
     readonly key: string
   }
   readonly sshHostAlias?: string            // ~/.ssh/config 中的 Host，如 "maxwellyu1024"
-  readonly account?: AccountKey             // 可选，绑定的平台账号
+  readonly account?: AccountKey             // 可选，绑定的平台账号（第 2 步 AccountKey 落地后加入）
   readonly rules: ReadonlyArray<IIdentityRule>
 }
+
+// 仓库如何选择身份，保存在仓库数据的 identity 字段
+type RepositoryIdentityBinding =
+  | { kind: 'automatic' }                   // 按默认远程地址匹配规则（默认值）
+  | { kind: 'none' }                        // 不使用身份，不检查也不写入本地配置
+  | { kind: 'identity'; id: string }        // 手动指定，优先于规则
 
 interface IIdentityRule {
   readonly host: string                     // 真实主机，如 "github.com"（别名先解析为真实主机）
@@ -154,8 +160,8 @@ interface IIdentityRule {
 - 身份保存在应用数据中（不含密钥内容，只保存密钥 ID 或公钥路径），随配置文件导出导入。
 - 仓库匹配：取默认远程地址，SSH 别名用 `ssh -G <alias>` 解析为真实主机，再按
   “主机 + 最长命名空间前缀”匹配规则；也可在仓库设置中手动指定身份，手动指定优先。
-- 仓库数据增加 `identityID`（可空），与 `accountKey` 一起表示仓库绑定；身份绑定了账号时，
-  `accountKey` 取身份的账号。
+- 仓库数据增加 `identity`（上述三态绑定），与 `accountKey` 一起表示仓库绑定；身份绑定了账号时，
+  `accountKey` 取身份的账号。删除身份时，指定该身份的仓库回到 `automatic`。
 
 写入仓库配置（只写 `git config --local`）：
 
@@ -170,8 +176,9 @@ interface IIdentityRule {
 
 - 套用时机：克隆、添加已有仓库、从文件夹添加、从其他应用添加、导入配置、在仓库设置中更换身份、
   修改身份内容后对其全部仓库重新套用。
-- 仓库已有不同的 `user.*` 或远程地址时，不直接覆盖：在添加类对话框里逐项列出差异（当前值 → 新值），
-  默认不勾选覆盖，确认后才写入。
+- 仓库已有不同的 `user.*` 或远程地址时，不直接覆盖：在确认对话框里逐项列出差异（当前值 → 新值），
+  确认后才写入。默认勾选：只补写未设置的值；用户明确选择了身份（仓库设置、设置身份、重新套用、
+  修改身份内容）时，覆盖已有值也默认勾选。
 - 改写远程地址前校验：别名经 `ssh -G` 解析出的 `hostname` 必须等于原远程主机，`fullPath` 不变；
   不满足时跳过并提示原因。
 - 身份检查：打开仓库与刷新时比较 `.git/config` 与身份，不一致时在仓库列表项与仓库设置中提示，
@@ -179,6 +186,45 @@ interface IIdentityRule {
 - 不写全局 Git 配置，不修改 `~/.ssh/config`；身份编辑器中只读列出 `~/.ssh/config` 的 `Host` 供选择。
 - 首次启用时从现有仓库推断身份建议：按“远程真实主机 + 命名空间 + 本地 `user.email`”聚合，
   列出建议的身份与规则，用户确认后创建。
+- “不一致”定义：仓库有身份，且套用该身份会产生必需改动（`ghdock.identity` 标记之外的差异）。
+
+实现模块：
+
+| 模块 | 职责 |
+| --- | --- |
+| `models/identity.ts` | 身份、规则、三态绑定 |
+| `lib/identity/remote-location.ts` | 远程地址解析（含多级命名空间） |
+| `lib/identity/match-identity.ts` | SSH 别名解析为真实主机后，按绑定与规则选身份（最长命名空间前缀） |
+| `lib/identity/identity-changes.ts` | 计算本地配置差异、写入所选改动 |
+| `lib/identity/identity-rules.ts` | 规则文本格式 `host` / `host/namespace` 的解析与格式化 |
+| `lib/identity/infer-identities.ts` | 从现有仓库推断身份建议 |
+| `lib/identity/repository-identity.ts` | 读取仓库本地配置，得出所用身份与差异 |
+| `lib/identity/repository-identity-tracker.ts` | 后台跟踪每个仓库的身份状态，供列表标记与分组 |
+| Dexie `identities` 表 | 身份按优先级顺序保存 |
+
+配置文件 v2（读取 v1 与 v2，写出 v2）：
+
+```json
+{
+  "version": 2,
+  "identities": [
+    { "label": "Work", "authorName": "Me", "authorEmail": "me@work.example", "signing": {"format":"ssh","key":"~/.ssh/work.pub"}, "sshHostAlias": "github-work", "rules": ["github.com/acme"] }
+  ],
+  "repositories": [
+    { "path": "~/dev/a", "identity": "Work" },
+    { "path": "~/dev/b", "identity": null },
+    { "path": "~/dev/c" }
+  ],
+  "settings": {}
+}
+```
+
+- 身份按 `label` 标识（不区分大小写、不可重复）；仓库的 `identity` 必须是文件中某个身份的 label，
+  `null` 表示不使用身份，省略表示自动匹配。文件没有 `identities` 段（如 v1）时，省略 `identity`
+  的仓库保持现有绑定。
+- 导入：身份按 label 合并，已有身份保留 ID；文件中的身份排在前面，合并模式下其余身份按原顺序随后，
+  “与文件一致”模式删除文件中没有的身份。先保存身份，再添加仓库、设置别名 / 置顶 / 身份，
+  最后对涉及的仓库复核本地配置差异；导入了设置时，复核对话框关闭后再重新加载窗口。
 
 ### 界面
 
@@ -209,7 +255,7 @@ interface IIdentityRule {
    `hostedRepositoryID`，数值不变。
 5. `endpoint-version:*`、`selected-copilot-models-by-account`、`genericGitAuth/username/*` 键名改为
    新的账号键格式。
-6. 身份为新增数据，`repositories.identityID` 初始为空；不自动写入任何仓库配置，
+6. 身份为新增数据，`repositories.identity` 初始为 `automatic`；不自动写入任何仓库配置，
    由用户确认“从现有仓库推断身份”的建议后才创建身份与绑定。
 7. 配置文件（`docs/plans/2026-10-10-repository-management.md`）`version` 升为 2，新增顶层
    `identities`，仓库项新增 `identity`（身份 label）；导入 `version: 1` 的文件保持现有行为。
