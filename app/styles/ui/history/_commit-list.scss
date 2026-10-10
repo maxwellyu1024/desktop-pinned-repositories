@@ -167,18 +167,26 @@
       flex-shrink: 0;
       margin-left: auto;
       padding-left: var(--spacing);
-      // 与提交详情头部的短码（.ecs-meta-item.commit-ref）保持一致：
-      // 界面字体、小号字、行文字颜色（选中行反色背景下同样清晰）
+      // 与提交详情头部的提交引用（.ecs-meta-item.commit-ref）保持一致：
+      // 提交图标 + 短码 + 复制图标，界面字体、小号字、行文字颜色
+      // （选中行反色背景下同样清晰）
       font-size: var(--font-size-sm);
       color: inherit;
       cursor: pointer;
 
-      .octicon {
-        margin-right: var(--spacing-third);
+      .commit-sha-text {
+        padding-left: var(--spacing-half);
       }
 
-      &:hover .commit-sha-text {
-        text-decoration: underline;
+      // 与 CopyButton（.button-component.copy-button .octicon）尺寸一致
+      .commit-sha-copy-icon {
+        height: 12px;
+        width: 12px;
+        margin-left: var(--spacing-half);
+      }
+
+      &:hover .commit-sha-copy-icon {
+        color: var(--text-secondary-color);
       }
     }
   }

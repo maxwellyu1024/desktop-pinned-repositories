@@ -75,14 +75,21 @@
       font-style: italic;
     }
 
-    // 当前分支名：次要信息，空间不足时先于仓库名收缩截断
+    // 当前分支名：靠右，与 ahead/behind、未提交改动指示放在一起；
+    // 次要信息，空间不足时先于仓库名收缩截断
     .branch-name {
       @include ellipsis;
       flex: 0 1000 auto;
       min-width: 0;
-      margin-left: var(--spacing-half);
+      margin-left: auto;
+      padding-left: var(--spacing);
       color: var(--text-secondary-color);
       font-size: var(--font-size-sm);
+
+      // 分支名已用 auto 外边距推到右侧，紧随其后的指示不再另取 auto
+      + .repo-indicators {
+        margin-left: var(--spacing-half);
+      }
     }
 
     .pin-button {

@@ -8,7 +8,10 @@ import { writeClipboardText } from '../main-process-proxy'
 const CopiedFeedbackDuration = 2000
 
 interface ICommitShaCopyProps {
-  /** The abbreviated SHA to display and copy */
+  /** The full SHA, copied to the clipboard */
+  readonly sha: string
+
+  /** The abbreviated SHA to display */
   readonly shortSha: string
 }
 
@@ -17,7 +20,8 @@ interface ICommitShaCopyState {
 }
 
 /**
- * Renders a commit's abbreviated SHA inside a commit list item and copies it
+ * Renders a commit's abbreviated SHA inside a commit list item, styled like
+ * the commit reference in the commit summary header, and copies the full SHA
  * to the clipboard when clicked.
  */
 export class CommitShaCopy extends React.Component<
@@ -48,13 +52,17 @@ export class CommitShaCopy extends React.Component<
         // 键盘/屏幕阅读器的复制路径是右键菜单的 Copy SHA
         tabIndex={-1}
         className={classNames('commit-sha', { copied: showCopied })}
-        aria-label={`Copy commit SHA ${shortSha}`}
+        aria-label={`Copy the full SHA of commit ${shortSha}`}
         onMouseDown={this.onMouseDown}
         onClick={this.onClick}
         onKeyDown={this.onKeyDown}
       >
-        {showCopied && <Octicon symbol={octicons.check} />}
+        <Octicon className="commit-sha-icon" symbol={octicons.gitCommit} />
         <span className="commit-sha-text">{shortSha}</span>
+        <Octicon
+          className="commit-sha-copy-icon"
+          symbol={showCopied ? octicons.check : octicons.copy}
+        />
       </button>
     )
   }
@@ -77,7 +85,7 @@ export class CommitShaCopy extends React.Component<
     // 阻止点击冒泡到列表行，避免复制操作同时切换选中提交
     event.stopPropagation()
 
-    if (!(await writeClipboardText(this.props.shortSha))) {
+    if (!(await writeClipboardText(this.props.sha))) {
       return
     }
 

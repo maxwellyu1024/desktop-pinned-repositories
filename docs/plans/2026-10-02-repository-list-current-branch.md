@@ -16,7 +16,7 @@
 
 ### 展示
 
-- `IRepositoryListItem` 新增 `currentBranch`，`RepositoryListItem` 在名称后渲染 `.branch-name`：次要文字色、小号字体、单行省略；空间不足时以 1000 倍收缩系数先于仓库名截断。HEAD 分离或状态未知时不显示。
+- `IRepositoryListItem` 新增 `currentBranch`，`RepositoryListItem` 在名称后渲染 `.branch-name`：靠右（`margin-left: auto`），紧挨 ahead/behind 与未提交改动指示，分支相关信息集中在右侧；次要文字色、小号字体、单行省略；空间不足时以 1000 倍收缩系数先于仓库名截断。HEAD 分离或状态未知时不显示。
 - 鼠标悬停提示与行聚焦提示增加 “Branch: <name>”。
 - `shouldComponentUpdate` 比较 `currentBranch`，分支变化时重绘。
 

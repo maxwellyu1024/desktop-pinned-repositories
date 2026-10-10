@@ -175,7 +175,7 @@ export class CommitListItem extends React.PureComponent<
                 <CommitAttribution avatarUsers={this.state.avatarUsers} />
                 {renderRelativeTime(date, this.props.preferAbsoluteDates)}
               </div>
-              <CommitShaCopy shortSha={commit.shortSha} />
+              <CommitShaCopy sha={commit.sha} shortSha={commit.shortSha} />
             </div>
           </div>
         </div>
