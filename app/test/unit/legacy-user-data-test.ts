@@ -49,11 +49,21 @@ describe('legacy user data', () => {
       )
     })
 
-    it('does not migrate once the new directory exists', async t => {
+    it('migrates into the empty directory Electron creates at startup', async t => {
+      const appData = await createTempDirectory(t)
+      const legacy = Path.join(appData, legacyName)
+      Fs.mkdirSync(legacy)
+      const userData = Path.join(appData, 'GHDock')
+      Fs.mkdirSync(userData)
+
+      assert.equal(findLegacyUserDataPath(appData, userData, ''), legacy)
+    })
+
+    it('does not migrate once the new directory has data', async t => {
       const appData = await createTempDirectory(t)
       Fs.mkdirSync(Path.join(appData, legacyName))
       const userData = Path.join(appData, 'GHDock')
-      Fs.mkdirSync(userData)
+      writeFile(Path.join(userData, 'window-state.json'), '{}')
 
       assert.equal(findLegacyUserDataPath(appData, userData, ''), null)
     })
@@ -105,6 +115,18 @@ describe('legacy user data', () => {
       assert.ok(
         Fs.lstatSync(Path.join(source, 'SingletonLock')).isSymbolicLink()
       )
+    })
+
+    it('replaces an empty destination directory', async t => {
+      const appData = await createTempDirectory(t)
+      const source = Path.join(appData, legacyName)
+      const destination = Path.join(appData, 'GHDock')
+      writeFile(Path.join(source, 'window-state.json'), '{}')
+      Fs.mkdirSync(destination)
+
+      copyLegacyUserData(source, destination)
+
+      assert.ok(Fs.existsSync(Path.join(destination, 'window-state.json')))
     })
 
     it('leaves no destination when copying fails', async t => {

@@ -19,7 +19,19 @@ const instanceFiles = new Set([
 ])
 
 /**
- * 找到需要迁移的旧数据目录。新目录已存在时不迁移，保证只在首次启动时执行一次。
+ * 新数据目录是否还没有任何内容。Electron 在主进程脚本运行前就会创建空的
+ * userData 目录，因此首次启动的判断依据是目录为空，而不是目录不存在。
+ */
+function isEmptyOrMissing(path: string) {
+  try {
+    return Fs.readdirSync(path).length === 0
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === 'ENOENT'
+  }
+}
+
+/**
+ * 找到需要迁移的旧数据目录。新目录有内容时不迁移，保证只在首次启动时执行一次。
  *
  * @param appDataPath 系统应用数据目录（`app.getPath('appData')`）
  * @param userDataPath 当前应用数据目录（`app.getPath('userData')`）
@@ -30,7 +42,7 @@ export function findLegacyUserDataPath(
   userDataPath: string,
   suffix: string
 ): string | null {
-  if (Fs.existsSync(userDataPath)) {
+  if (!isEmptyOrMissing(userDataPath)) {
     return null
   }
 
@@ -74,7 +86,7 @@ export function isUserDataInUse(userDataPath: string): boolean {
 
 /**
  * 将旧数据目录完整复制到新目录，旧目录保持不变。先复制到临时目录再重命名，
- * 中途失败不会留下不完整的新目录，下次启动会重新迁移。
+ * 中途失败不会留下不完整的新目录，下次启动会重新迁移。新目录只能为空或不存在。
  */
 export function copyLegacyUserData(source: string, destination: string) {
   const staging = `${destination}.migrating`
@@ -87,6 +99,10 @@ export function copyLegacyUserData(source: string, destination: string) {
       verbatimSymlinks: true,
       filter: path => !instanceFiles.has(Path.basename(path)),
     })
+    // Electron 启动时创建的空目录，删除后才能在所有平台上重命名
+    if (Fs.existsSync(destination)) {
+      Fs.rmdirSync(destination)
+    }
     Fs.renameSync(staging, destination)
   } catch (e) {
     Fs.rmSync(staging, { recursive: true, force: true })
