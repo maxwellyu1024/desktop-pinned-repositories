@@ -33,16 +33,22 @@ interface IAddRepositoriesDialogProps {
   readonly onDismissed: () => void
 }
 
+/** The `sourceIndex` that lists the repositories from all sources. */
+const AllSources = -1
+
 interface IAddRepositoriesDialogState {
+  /** The source being listed, or `AllSources`. */
   readonly sourceIndex: number
   readonly selectedPaths: ReadonlySet<string>
   readonly adding: boolean
 }
 
 /**
- * Lists repositories found somewhere, grouped by where they were found, and
- * adds the selected ones. Repositories that aren't in the list yet start out
- * selected; the selection is kept when switching between sources.
+ * Lists repositories found somewhere and adds the selected ones. With several
+ * sources the list shows all of them by default, each source can be listed on
+ * its own. Repositories that aren't in the list yet start out selected; the
+ * selection is shared between sources, so the count on the add button always
+ * matches what the "All" view shows as selected.
  */
 export class AddRepositoriesDialog extends React.Component<
   IAddRepositoriesDialogProps,
@@ -51,7 +57,7 @@ export class AddRepositoriesDialog extends React.Component<
   public constructor(props: IAddRepositoriesDialogProps) {
     super(props)
     this.state = {
-      sourceIndex: 0,
+      sourceIndex: AllSources,
       selectedPaths: this.getNewPaths(props.sources),
       adding: false,
     }
@@ -86,21 +92,56 @@ export class AddRepositoriesDialog extends React.Component<
     this.props.onDismissed()
   }
 
-  private renderSources(sources: ReadonlyArray<IRepositorySource>) {
-    const source = sources[this.state.sourceIndex] ?? sources[0]
-
-    const items: ReadonlyArray<IRepositoryChecklistItem> = source.paths.map(
-      path => {
-        const added = this.isAdded(path)
-        return {
-          key: path,
-          title: Path.basename(path),
-          path,
-          note: added ? 'already added' : undefined,
-          disabled: added,
+  /** Each repository once, with the names of the sources it was found in. */
+  private getAllPaths(sources: ReadonlyArray<IRepositorySource>) {
+    const found = new Map<string, Array<string>>()
+    for (const { name, paths } of sources) {
+      for (const path of paths) {
+        const names = found.get(path)
+        if (names === undefined) {
+          found.set(path, [name])
+        } else {
+          names.push(name)
         }
       }
-    )
+    }
+    return found
+  }
+
+  /** E.g. "IntelliJ IDEA: 2 of 3 selected". */
+  private describeOption(name: string, paths: Iterable<string>) {
+    let total = 0
+    let selected = 0
+    for (const path of paths) {
+      total++
+      if (this.state.selectedPaths.has(path)) {
+        selected++
+      }
+    }
+    return `${name}: ${selected} of ${total} selected`
+  }
+
+  private renderSources(sources: ReadonlyArray<IRepositorySource>) {
+    const all = this.getAllPaths(sources)
+    const source =
+      this.state.sourceIndex === AllSources
+        ? undefined
+        : sources[this.state.sourceIndex]
+    const showAll = source === undefined
+    const paths = showAll ? [...all.keys()] : source.paths
+
+    const items: ReadonlyArray<IRepositoryChecklistItem> = paths.map(path => {
+      const added = this.isAdded(path)
+      const foundIn =
+        showAll && sources.length > 1 ? all.get(path)?.join(', ') : undefined
+      return {
+        key: path,
+        title: Path.basename(path),
+        path,
+        note: added ? 'already added' : foundIn,
+        disabled: added,
+      }
+    })
 
     return (
       <>
@@ -110,9 +151,15 @@ export class AddRepositoriesDialog extends React.Component<
             value={this.state.sourceIndex.toString()}
             onChange={this.onSourceChanged}
           >
+            <option value={AllSources}>
+              {this.describeOption(
+                __DARWIN__ ? 'All Apps' : 'All apps',
+                all.keys()
+              )}
+            </option>
             {sources.map((s, index) => (
               <option key={s.name} value={index}>
-                {s.name} ({s.paths.length})
+                {this.describeOption(s.name, s.paths)}
               </option>
             ))}
           </Select>
