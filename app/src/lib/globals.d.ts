@@ -28,6 +28,15 @@ declare const __LINUX__: boolean
 declare const __APP_NAME__: string
 
 /**
+ * Whether this build carries the official GitHub Desktop identity. Only the
+ * official app checks for updates and claims the shared URL schemes.
+ */
+declare const __OFFICIAL_APP__: boolean
+
+/** The name of the command line tool installed into /usr/local/bin. */
+declare const __CLI_NAME__: string
+
+/**
  * The current version of the app, this is intended to be a compile-time
  * replacement for app.getVersion
  * (https://www.electronjs.org/docs/latest/api/app#appgetname)

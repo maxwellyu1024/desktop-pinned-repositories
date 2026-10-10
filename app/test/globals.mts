@@ -5,12 +5,15 @@ import { mock } from 'node:test'
 // These constants are defined by Webpack at build time, but since tests aren't
 // built with Webpack we need to make sure these exist at runtime.
 const packageInfo = await import('../package.json')
+const { getCLIName, isOfficialApp } = await import('../package-info')
 
 Object.assign(globalThis, {
   __DEV__: false,
   __TEST__: true,
   __DEV_SECRETS__: false,
   __APP_NAME__: packageInfo.productName,
+  __OFFICIAL_APP__: isOfficialApp(),
+  __CLI_NAME__: getCLIName(),
   __APP_VERSION__: packageInfo.version,
   __RELEASE_CHANNEL__: 'development',
   __UPDATES_URL__: '',

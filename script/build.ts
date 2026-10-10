@@ -40,6 +40,7 @@ import {
   getBundleID,
   getCompanyName,
   getProductName,
+  isOfficialApp,
 } from '../app/package-info'
 
 import { isGitHubActions } from './build-platforms'
@@ -245,11 +246,11 @@ async function packageApp() {
       {
         name: getBundleID(),
         schemes: [
-          !isDevelopmentBuild
-            ? 'x-github-desktop-auth'
-            : 'x-github-desktop-dev-auth',
-          'x-github-client',
-          'github-mac',
+          // 与运行时 __DEV_SECRETS__ 保持一致，否则 OAuth 回调无法回到应用
+          isDevelopmentBuild || !process.env.DESKTOP_OAUTH_CLIENT_SECRET
+            ? 'x-github-desktop-dev-auth'
+            : 'x-github-desktop-auth',
+          ...(isOfficialApp() ? ['x-github-client', 'github-mac'] : []),
         ],
       },
     ],

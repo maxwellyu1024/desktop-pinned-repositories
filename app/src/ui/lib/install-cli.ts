@@ -4,7 +4,7 @@ import * as fsAdmin from 'fs-admin'
 import { mkdir, readlink, symlink, unlink } from 'fs/promises'
 
 /** The path for the installed command line tool. */
-export const InstalledCLIPath = '/usr/local/bin/github'
+export const InstalledCLIPath = `/usr/local/bin/${__CLI_NAME__}`
 
 /** The path to the packaged CLI. */
 const PackagedPath = Path.resolve(__dirname, 'static', 'github.sh')
@@ -42,7 +42,7 @@ function removeExistingSymlink(asAdmin: boolean) {
       if (error !== null) {
         reject(
           new Error(
-            `Failed to remove file at ${InstalledCLIPath}. Authorization of GitHub Desktop Helper is required.`
+            `Failed to remove file at ${InstalledCLIPath}. Authorization of ${__APP_NAME__} Helper is required.`
           )
         )
         return

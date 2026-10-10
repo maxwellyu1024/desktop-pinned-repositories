@@ -104,17 +104,21 @@ function getExtraErrorContext(): Record<string, string> {
 /** Extra argument for the protocol launcher on Windows */
 const protocolLauncherArg = '--protocol-launcher'
 
-const possibleProtocols = new Set(['x-github-client'])
+const possibleProtocols = new Set<string>()
 if (__DEV_SECRETS__) {
   possibleProtocols.add('x-github-desktop-dev-auth')
 } else {
   possibleProtocols.add('x-github-desktop-auth')
 }
-// Also support Desktop Classic's protocols.
-if (__DARWIN__) {
-  possibleProtocols.add('github-mac')
-} else if (__WIN32__) {
-  possibleProtocols.add('github-windows')
+// 共享协议只由官方应用注册，独立身份的 fork 不抢占默认处理程序
+if (__OFFICIAL_APP__) {
+  possibleProtocols.add('x-github-client')
+  // Also support Desktop Classic's protocols.
+  if (__DARWIN__) {
+    possibleProtocols.add('github-mac')
+  } else if (__WIN32__) {
+    possibleProtocols.add('github-windows')
+  }
 }
 
 // On Windows, in order to get notifications properly working for dev builds,
