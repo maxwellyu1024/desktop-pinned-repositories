@@ -55,6 +55,7 @@ import { initializeDesktopNotifications } from './notifications'
 import parseCommandLineArgs from 'minimist'
 import { CLIAction } from '../lib/cli-action'
 import { migrateLegacyUserData } from './migrate-legacy-user-data'
+import { readDesktopRepositories } from './read-desktop-repositories'
 
 migrateLegacyUserData()
 app.setAppLogsPath()
@@ -734,6 +735,14 @@ app.on('ready', () => {
   ipcMain.handle(
     'show-open-dialog',
     async (_, options) => mainWindow?.showOpenDialog(options) ?? null
+  )
+
+  /**
+   * An event sent by the renderer asking for the repositories of another
+   * GitHub Desktop installation
+   */
+  ipcMain.handle('read-desktop-repositories', async (_, dataPath) =>
+    readDesktopRepositories(dataPath)
   )
 
   /**

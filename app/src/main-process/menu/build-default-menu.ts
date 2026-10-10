@@ -129,6 +129,36 @@ export function buildDefaultMenuTemplate({
         accelerator: 'CmdOrCtrl+Shift+O',
         click: emit('clone-repository'),
       },
+      {
+        label: __DARWIN__
+          ? 'Add Repositories from Folder…'
+          : 'Add repositories from &folder…',
+        id: 'add-repositories-from-folder',
+        click: emit('add-repositories-from-folder'),
+      },
+      {
+        label: __DARWIN__
+          ? 'Add Repositories from Other Apps…'
+          : 'Add repositories from other &apps…',
+        id: 'add-repositories-from-apps',
+        click: emit('add-repositories-from-apps'),
+      },
+      {
+        label: __DARWIN__ ? 'Manage Repositories…' : '&Manage repositories…',
+        id: 'manage-repositories',
+        click: emit('manage-repositories'),
+      },
+      separator,
+      {
+        label: __DARWIN__ ? 'Import Configuration…' : '&Import configuration…',
+        id: 'import-configuration',
+        click: emit('import-configuration'),
+      },
+      {
+        label: __DARWIN__ ? 'Export Configuration…' : '&Export configuration…',
+        id: 'export-configuration',
+        click: emit('export-configuration'),
+      },
     ],
   }
 

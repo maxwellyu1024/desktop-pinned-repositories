@@ -28,6 +28,8 @@ import { BypassReasonType } from '../ui/secret-scanning/bypass-push-protection-d
 import { TerminalOutput, TerminalOutputListener } from '../lib/git'
 import type { IBYOKModel, IBYOKProvider } from '../lib/copilot/byok'
 import { WorktreeEntry } from './worktree'
+import type { IConfiguration } from '../lib/configuration/configuration-file'
+import type { IResolvedRepositoryEntry } from '../lib/configuration/import-plan'
 
 export enum PopupType {
   RenameBranch = 'RenameBranch',
@@ -123,6 +125,10 @@ export enum PopupType {
   ConfirmDeleteCopilotBYOKProvider = 'ConfirmDeleteCopilotBYOKProvider',
   CopilotConflictResolutionAlwaysNudge = 'CopilotConflictResolutionAlwaysNudge',
   DeleteWorktreeFailed = 'DeleteWorktreeFailed',
+  AddRepositoriesFromFolder = 'AddRepositoriesFromFolder',
+  AddRepositoriesFromApps = 'AddRepositoriesFromApps',
+  ManageRepositories = 'ManageRepositories',
+  ImportConfiguration = 'ImportConfiguration',
 }
 
 interface IBasePopup {
@@ -551,5 +557,18 @@ export type PopupDetail =
       worktreePath: string
       error: Error
       originalWorktree: WorktreeEntry | null
+    }
+  | {
+      type: PopupType.AddRepositoriesFromFolder
+      folder: string
+      paths: ReadonlyArray<string>
+    }
+  | { type: PopupType.AddRepositoriesFromApps }
+  | { type: PopupType.ManageRepositories }
+  | {
+      type: PopupType.ImportConfiguration
+      path: string
+      configuration: IConfiguration
+      resolved: ReadonlyArray<IResolvedRepositoryEntry>
     }
 export type Popup = IBasePopup & PopupDetail

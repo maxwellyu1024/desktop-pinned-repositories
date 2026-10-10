@@ -232,6 +232,12 @@ import { DeleteWorktreeDialog } from './worktrees/delete-worktree-dialog'
 import { DeleteWorktreeFailedDialog } from './worktrees/delete-worktree-failed-dialog'
 import { WorktreeEntry } from '../models/worktree'
 import { shouldShowWorktreeDropdown } from '../lib/worktree-dropdown'
+import { AddRepositoriesDialog } from './repository-management/add-repositories-dialog'
+import { AddRepositoriesFromAppsDialog } from './repository-management/add-repositories-from-apps-dialog'
+import { ManageRepositoriesDialog } from './repository-management/manage-repositories-dialog'
+import { ImportConfigurationDialog } from './repository-management/import-configuration-dialog'
+import { RepositoryScanDepth } from '../lib/scan-repositories'
+import { PathText } from './lib/path-text'
 
 const MinuteInMilliseconds = 1000 * 60
 const HourInMilliseconds = MinuteInMilliseconds * 60
@@ -530,6 +536,20 @@ export class App extends React.Component<IAppProps, IAppState> {
         return this.openCurrentRepositoryInShell()
       case 'clone-repository':
         return this.showCloneRepo()
+      case 'add-repositories-from-folder':
+        return this.props.dispatcher.showAddRepositoriesFromFolder()
+      case 'add-repositories-from-apps':
+        return this.props.dispatcher.showPopup({
+          type: PopupType.AddRepositoriesFromApps,
+        })
+      case 'manage-repositories':
+        return this.props.dispatcher.showPopup({
+          type: PopupType.ManageRepositories,
+        })
+      case 'import-configuration':
+        return this.props.dispatcher.showImportConfiguration()
+      case 'export-configuration':
+        return this.props.dispatcher.exportConfiguration()
       case 'show-about':
         return this.showAbout()
       case 'go-to-commit-message':
@@ -3051,9 +3071,69 @@ export class App extends React.Component<IAppProps, IAppState> {
           />
         )
       }
+      case PopupType.AddRepositoriesFromFolder:
+        return (
+          <AddRepositoriesDialog
+            key="add-repositories-from-folder"
+            dispatcher={this.props.dispatcher}
+            id="add-repositories-from-folder"
+            title={
+              __DARWIN__
+                ? 'Add Repositories from Folder'
+                : 'Add repositories from folder'
+            }
+            description={
+              <p>
+                Git repositories in <PathText path={popup.folder} /> and its
+                subfolders, up to {RepositoryScanDepth} levels deep.
+              </p>
+            }
+            emptyMessage="No Git repositories were found in this folder."
+            sources={[{ name: popup.folder, paths: popup.paths }]}
+            repositories={this.localRepositories}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      case PopupType.AddRepositoriesFromApps:
+        return (
+          <AddRepositoriesFromAppsDialog
+            key="add-repositories-from-apps"
+            dispatcher={this.props.dispatcher}
+            repositories={this.localRepositories}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      case PopupType.ManageRepositories:
+        return (
+          <ManageRepositoriesDialog
+            key="manage-repositories"
+            dispatcher={this.props.dispatcher}
+            repositories={this.localRepositories}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      case PopupType.ImportConfiguration:
+        return (
+          <ImportConfigurationDialog
+            key="import-configuration"
+            dispatcher={this.props.dispatcher}
+            path={popup.path}
+            configuration={popup.configuration}
+            resolved={popup.resolved}
+            repositories={this.localRepositories}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
       default:
         return assertNever(popup, `Unknown popup type: ${popup}`)
     }
+  }
+
+  /** Repositories in the list, excluding those still being cloned. */
+  private get localRepositories(): ReadonlyArray<Repository> {
+    return this.state.repositories.filter(
+      (r): r is Repository => r instanceof Repository
+    )
   }
 
   private onSwitchToWorktree = (

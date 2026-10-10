@@ -1,0 +1,65 @@
+.repository-management-dialog {
+  width: 600px;
+
+  .repository-management-description {
+    margin-bottom: var(--spacing);
+    color: var(--text-secondary-color);
+  }
+
+  .select-component,
+  .text-box-component {
+    margin-bottom: var(--spacing);
+  }
+
+  .repository-checklist-actions {
+    display: flex;
+    gap: var(--spacing);
+    margin-bottom: var(--spacing-half);
+  }
+
+  .repository-checklist ul,
+  .import-section ul {
+    max-height: 300px;
+    overflow-y: auto;
+    margin: 0;
+    padding: var(--spacing-half);
+    list-style: none;
+    border: var(--base-border);
+    border-radius: var(--border-radius);
+  }
+
+  .repository-checklist li {
+    padding: var(--spacing-half) 0;
+  }
+
+  .repository-checklist-label {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+
+    .note {
+      color: var(--text-secondary-color);
+    }
+
+    .path-text-component {
+      color: var(--text-secondary-color);
+      font-size: var(--font-size-sm);
+    }
+  }
+
+  .import-summary {
+    margin-top: var(--spacing);
+
+    .import-section {
+      margin-bottom: var(--spacing);
+
+      summary {
+        cursor: pointer;
+      }
+
+      ul {
+        margin-top: var(--spacing-half);
+      }
+    }
+  }
+}

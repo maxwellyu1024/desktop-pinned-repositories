@@ -138,6 +138,8 @@ import {
   ICopilotResolutionSummary,
 } from '../../lib/copilot-conflict-resolution'
 import { WorktreeEntry } from '../../models/worktree'
+import { IImportPlan } from '../../lib/configuration/import-plan'
+import { IRepositorySource } from '../../lib/repository-sources'
 
 /**
  * An error handler function.
@@ -223,6 +225,38 @@ export class Dispatcher {
     moveToTrash: boolean
   ): Promise<void> {
     return this.appStore._removeRepository(repository, moveToTrash)
+  }
+
+  /** Remove several repositories from the list, leaving them on disk. */
+  public removeRepositories(
+    repositories: ReadonlyArray<Repository>
+  ): Promise<void> {
+    return this.appStore._removeRepositories(repositories)
+  }
+
+  /** Choose a folder and offer to add the repositories found in it. */
+  public showAddRepositoriesFromFolder(): Promise<void> {
+    return this.appStore._showAddRepositoriesFromFolder()
+  }
+
+  /** Find the repositories known to GitHub Desktop and installed editors. */
+  public findRepositorySources(): Promise<ReadonlyArray<IRepositorySource>> {
+    return this.appStore._findRepositorySources()
+  }
+
+  /** Save the repository list and settings to a configuration file. */
+  public exportConfiguration(): Promise<void> {
+    return this.appStore._exportConfiguration()
+  }
+
+  /** Choose a configuration file and preview importing it. */
+  public showImportConfiguration(): Promise<void> {
+    return this.appStore._showImportConfiguration()
+  }
+
+  /** Apply a configuration file import. */
+  public importConfiguration(plan: IImportPlan): Promise<void> {
+    return this.appStore._importConfiguration(plan)
   }
 
   /** Update the repository's `missing` flag. */

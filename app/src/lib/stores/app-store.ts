@@ -1,5 +1,6 @@
 import * as Path from 'path'
-import { writeFile } from 'fs/promises'
+import { readFile, writeFile } from 'fs/promises'
+import { homedir } from 'os'
 import {
   AccountsStore,
   CloningRepositoriesStore,
@@ -134,6 +135,9 @@ import {
   quitApp,
   sendCancelQuittingSync,
   showOpenDialog,
+  showSaveDialog,
+  getPath,
+  readDesktopRepositories,
 } from '../../ui/main-process-proxy'
 import {
   API,
@@ -450,6 +454,19 @@ import { resolveWithin } from '../path'
 import { WorktreeEntry } from '../../models/worktree'
 import { shouldShowWorktreeDropdown } from '../worktree-dropdown'
 import type { Model } from '../copilot/types'
+import {
+  ConfigurationFileError,
+  IConfigurationRepository,
+  parseConfiguration,
+  serializeConfiguration,
+} from '../configuration/configuration-file'
+import {
+  IImportPlan,
+  IResolvedRepositoryEntry,
+} from '../configuration/import-plan'
+import { readSettings, writeSettings } from '../configuration/settings'
+import { scanForRepositories } from '../scan-repositories'
+import { findRepositorySources, IRepositorySource } from '../repository-sources'
 
 const LastSelectedRepositoryIDKey = 'last-selected-repository-id'
 
@@ -8419,6 +8436,165 @@ export class AppStore extends TypedBaseStore<IAppState> {
       this._closeFoldout(FoldoutType.Repository)
     } else {
       this._showFoldout({ type: FoldoutType.Repository })
+    }
+  }
+
+  /** Remove several repositories from the list, leaving them on disk. */
+  public async _removeRepositories(
+    repositories: ReadonlyArray<Repository>
+  ): Promise<void> {
+    try {
+      await this.repositoriesStore.removeRepositories(repositories)
+    } catch (err) {
+      this.emitError(err)
+    }
+  }
+
+  /** Choose a folder and list the repositories found in it. */
+  public async _showAddRepositoriesFromFolder(): Promise<void> {
+    const folder = await showOpenDialog({ properties: ['openDirectory'] })
+    if (folder === null) {
+      return
+    }
+
+    const paths = await scanForRepositories(folder)
+    this._showPopup({
+      type: PopupType.AddRepositoriesFromFolder,
+      folder,
+      paths,
+    })
+  }
+
+  /** Find the repositories known to GitHub Desktop and installed editors. */
+  public async _findRepositorySources(): Promise<
+    ReadonlyArray<IRepositorySource>
+  > {
+    const [appDataPath, userDataPath] = await Promise.all([
+      getPath('appData'),
+      getPath('userData'),
+    ])
+
+    return findRepositorySources({
+      appDataPath,
+      userDataPath,
+      homeDirectory: homedir(),
+      readDesktopRepositories,
+    })
+  }
+
+  /** Save the repository list and settings to a configuration file. */
+  public async _exportConfiguration(): Promise<void> {
+    const path = await showSaveDialog({
+      defaultPath: `${__CLI_NAME__}-configuration.json`,
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    })
+    if (path === null) {
+      return
+    }
+
+    const contents = serializeConfiguration(
+      this.repositories,
+      readSettings(),
+      homedir()
+    )
+
+    try {
+      await writeFile(path, contents, 'utf8')
+    } catch (err) {
+      this.emitError(err)
+    }
+  }
+
+  /** Choose a configuration file and preview what importing it changes. */
+  public async _showImportConfiguration(): Promise<void> {
+    const path = await showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    })
+    if (path === null) {
+      return
+    }
+
+    try {
+      const configuration = parseConfiguration(
+        await readFile(path, 'utf8'),
+        homedir()
+      )
+      const resolved = await this.resolveConfigurationRepositories(
+        configuration.repositories ?? []
+      )
+
+      this._showPopup({
+        type: PopupType.ImportConfiguration,
+        path,
+        configuration,
+        resolved,
+      })
+    } catch (err) {
+      this.emitError(
+        err instanceof ConfigurationFileError
+          ? new Error(`Could not import ${path}:\n\n${err.message}`)
+          : err
+      )
+    }
+  }
+
+  /** Find where each repository in a configuration file is on disk. */
+  private resolveConfigurationRepositories(
+    entries: ReadonlyArray<IConfigurationRepository>
+  ): Promise<ReadonlyArray<IResolvedRepositoryEntry>> {
+    return Promise.all(
+      entries.map(async entry => {
+        const existing = matchExistingRepository(this.repositories, entry.path)
+        if (existing !== undefined) {
+          return { entry, path: existing.path }
+        }
+
+        const type = await getRepositoryType(entry.path).catch(e => {
+          log.error('Could not determine repository type', e)
+          return { kind: 'missing' } as RepositoryType
+        })
+
+        switch (type.kind) {
+          case 'regular':
+            return { entry, path: type.topLevelWorkingDirectory }
+          case 'unsafe':
+            return { entry, path: entry.path }
+          default:
+            return { entry, path: null }
+        }
+      })
+    )
+  }
+
+  /**
+   * Apply an import plan. The window reloads afterwards when settings were
+   * imported, since they're only read at startup.
+   */
+  public async _importConfiguration(plan: IImportPlan): Promise<void> {
+    try {
+      if (plan.toAdd.length > 0) {
+        await this._addRepositories(plan.toAdd)
+      }
+
+      const repositories = await this.repositoriesStore.getAll()
+      const layout = plan.layout.flatMap(({ path, alias, pinOrder }) => {
+        const repository = matchExistingRepository(repositories, path)
+        return repository === undefined ? [] : [{ repository, alias, pinOrder }]
+      })
+      await this.repositoriesStore.updateRepositoriesLayout(layout)
+
+      if (plan.toRemove.length > 0) {
+        await this.repositoriesStore.removeRepositories(plan.toRemove)
+      }
+    } catch (err) {
+      this.emitError(err)
+      return
+    }
+
+    if (Object.keys(plan.settings).length > 0) {
+      writeSettings(plan.settings)
+      window.location.reload()
     }
   }
 

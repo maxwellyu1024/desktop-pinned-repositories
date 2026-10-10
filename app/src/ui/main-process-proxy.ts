@@ -448,6 +448,15 @@ export const showSaveDialog = invokeProxy('show-save-dialog', 1)
  */
 export const showOpenDialog = invokeProxy('show-open-dialog', 1)
 
+/**
+ * Ask the main process for the repositories of another GitHub Desktop
+ * installation, given its user data directory
+ */
+export const readDesktopRepositories = invokeProxy(
+  'read-desktop-repositories',
+  1
+)
+
 /** Tell the main process read/save the user GUID from/to file */
 export const saveGUID = invokeProxy('save-guid', 1)
 export const getGUID = invokeProxy('get-guid', 0)

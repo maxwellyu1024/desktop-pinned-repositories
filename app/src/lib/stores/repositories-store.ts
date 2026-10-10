@@ -278,6 +278,38 @@ export class RepositoriesStore extends TypedBaseStore<
     this.emitUpdatedRepositories()
   }
 
+  /** Remove the given repositories in a single transaction. */
+  public async removeRepositories(
+    repositories: ReadonlyArray<Repository>
+  ): Promise<void> {
+    await this.db.repositories.bulkDelete(repositories.map(r => r.id))
+    repositories.forEach(clearTagsToPush)
+
+    this.emitUpdatedRepositories()
+  }
+
+  /**
+   * Set the alias and pin order of several repositories in a single
+   * transaction. Repositories that aren't listed keep their values.
+   */
+  public async updateRepositoriesLayout(
+    layout: ReadonlyArray<{
+      readonly repository: Repository
+      readonly alias: string | null
+      readonly pinOrder: number | null
+    }>
+  ): Promise<void> {
+    await this.db.transaction('rw', this.db.repositories, () =>
+      Promise.all(
+        layout.map(({ repository, alias, pinOrder }) =>
+          this.db.repositories.update(repository.id, { alias, pinOrder })
+        )
+      )
+    )
+
+    this.emitUpdatedRepositories()
+  }
+
   /** Update the repository's `missing` flag. */
   public async updateRepositoryMissing(
     repository: Repository,

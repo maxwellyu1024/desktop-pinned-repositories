@@ -290,4 +290,51 @@ describe('RepositoriesStore', () => {
       )
     })
   })
+
+  describe('managing several repositories', () => {
+    const addRepositories = (...paths: ReadonlyArray<string>) =>
+      Promise.all(
+        paths.map(path =>
+          repositoriesStore.addRepository(path, join(path, '.git'))
+        )
+      )
+
+    it('removes several repositories at once', async () => {
+      const [a, , c] = await addRepositories('/a', '/b', '/c')
+
+      await repositoriesStore.removeRepositories([a, c])
+
+      const remaining = await repositoriesStore.getAll()
+      assert.deepStrictEqual(
+        remaining.map(r => r.path),
+        ['/b']
+      )
+    })
+
+    it('sets aliases and pin order, leaving unlisted repositories alone', async () => {
+      const [a, b, c] = await addRepositories('/a', '/b', '/c')
+      await repositoriesStore.updateRepositoryAlias(c, 'Sea')
+      await repositoriesStore.updateRepositoryPinned(c, true)
+
+      await repositoriesStore.updateRepositoriesLayout([
+        { repository: b, alias: 'Bee', pinOrder: 0 },
+        { repository: a, alias: null, pinOrder: 1 },
+      ])
+
+      const layout = new Map(
+        (await repositoriesStore.getAll()).map(r => [
+          r.path,
+          [r.alias, r.pinOrder],
+        ])
+      )
+      assert.deepStrictEqual(
+        layout,
+        new Map([
+          ['/a', [null, 1]],
+          ['/b', ['Bee', 0]],
+          ['/c', ['Sea', 0]],
+        ])
+      )
+    })
+  })
 })
