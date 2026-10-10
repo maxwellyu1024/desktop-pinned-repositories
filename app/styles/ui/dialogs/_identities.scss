@@ -1,11 +1,17 @@
+// Also used where identities show up in other dialogs, e.g. repository settings.
+.identities-description {
+  margin-top: 0;
+  margin-bottom: var(--spacing);
+  color: var(--text-secondary-color);
+}
+
+.identity-warning {
+  margin: var(--spacing-half) 0;
+  color: var(--dialog-warning-color);
+}
+
 .identities-dialog {
   width: 600px;
-
-  .identities-description {
-    margin-top: 0;
-    margin-bottom: var(--spacing);
-    color: var(--text-secondary-color);
-  }
 
   .identity-entries {
     max-height: 55vh;
@@ -34,11 +40,6 @@
       font-size: var(--font-size-sm);
       overflow: hidden;
     }
-  }
-
-  .identity-warning {
-    margin: var(--spacing-half) 0;
-    color: var(--dialog-warning-color);
   }
 
   .identity-suggestions {

@@ -49,6 +49,7 @@ describe('RepositoryListItem', () => {
         aheadBehind={{ ahead: 2, behind: 1 }}
         changedFilesCount={3}
         currentBranch="main"
+        identityMismatch={null}
       />
     )
 
@@ -78,6 +79,7 @@ describe('RepositoryListItem', () => {
         aheadBehind={null}
         changedFilesCount={0}
         currentBranch={null}
+        identityMismatch={null}
       />
     )
 
@@ -99,6 +101,7 @@ describe('RepositoryListItem', () => {
         aheadBehind={null}
         changedFilesCount={0}
         currentBranch="feature/tooltip"
+        identityMismatch={null}
       />
     )
 

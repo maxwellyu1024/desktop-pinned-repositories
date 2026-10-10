@@ -8511,7 +8511,12 @@ export class AppStore extends TypedBaseStore<IAppState> {
       }
     }
 
-    const repositories = entries.map(e => e.repository)
+    // The entries may predate a change to how the repositories choose their
+    // identity, so recheck them as they are now.
+    const ids = new Set(entries.map(e => e.repository.id))
+    const repositories = (await this.repositoriesStore.getAll()).filter(r =>
+      ids.has(r.id)
+    )
     await this.identityTracker.refresh(repositories)
 
     const selected = this.selectedRepository

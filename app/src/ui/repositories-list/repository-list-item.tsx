@@ -34,6 +34,12 @@ interface IRepositoryListItemProps {
   /** The currently checked out branch, null when detached or unknown */
   readonly currentBranch: string | null
 
+  /**
+   * The identity whose settings the repository's config differs from, null
+   * when it matches or uses none.
+   */
+  readonly identityMismatch: string | null
+
   /** Called when the user clicks the pin button. Not rendered when absent. */
   readonly onTogglePin?: (repository: Repository) => void
 
@@ -111,6 +117,7 @@ export class RepositoryListItem extends React.Component<
             renderRepoIndicators({
               aheadBehind: this.props.aheadBehind,
               hasChanges: hasChanges,
+              identityMismatch: this.props.identityMismatch,
             })}
 
           {repository instanceof Repository &&
@@ -206,6 +213,9 @@ export class RepositoryListItem extends React.Component<
         {this.props.currentBranch !== null && (
           <div>Branch: {this.props.currentBranch}</div>
         )}
+        {this.props.identityMismatch !== null && (
+          <div>Not set up for identity {this.props.identityMismatch}</div>
+        )}
       </>
     )
   }
@@ -219,7 +229,8 @@ export class RepositoryListItem extends React.Component<
         nextProps.repository.hash !== this.props.repository.hash ||
         nextProps.matches !== this.props.matches ||
         nextProps.isDraggable !== this.props.isDraggable ||
-        nextProps.currentBranch !== this.props.currentBranch
+        nextProps.currentBranch !== this.props.currentBranch ||
+        nextProps.identityMismatch !== this.props.identityMismatch
       )
     } else {
       return true
@@ -230,12 +241,28 @@ export class RepositoryListItem extends React.Component<
 const renderRepoIndicators: React.FunctionComponent<{
   aheadBehind: IAheadBehind | null
   hasChanges: boolean
+  identityMismatch: string | null
 }> = props => {
   return (
     <div className="repo-indicators">
+      {props.identityMismatch !== null &&
+        renderIdentityMismatchIndicator(props.identityMismatch)}
       {props.aheadBehind && renderAheadBehindIndicator(props.aheadBehind)}
       {props.hasChanges && renderChangesIndicator()}
     </div>
+  )
+}
+
+const renderIdentityMismatchIndicator = (identity: string) => {
+  return (
+    <TooltippedContent
+      className="identity-mismatch-indicator"
+      tagName="div"
+      tooltip={`The Git config of this repository differs from identity ${identity}. Right-click to apply it.`}
+      disabled={enableAccessibleListToolTips()}
+    >
+      <Octicon symbol={octicons.alert} />
+    </TooltippedContent>
   )
 }
 

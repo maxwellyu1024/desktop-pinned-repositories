@@ -1,5 +1,6 @@
 import { Repository } from '../../models/repository'
 import { IMenuItem } from '../../lib/menu-item'
+import { IRepositoryIdentityState } from '../../lib/identity/repository-identity'
 import { Repositoryish, movePinnedRepository } from './group-repositories'
 import { Shell } from '../../lib/shells'
 import { writeClipboardText } from '../main-process-proxy'
@@ -43,6 +44,12 @@ interface IRepositoryListItemContextMenuConfig {
   onReorderPinnedRepositories: (repositories: ReadonlyArray<Repository>) => void
   onCreateWorktree?: (repository: Repository) => void
   onShowWorktrees?: (repository: Repository) => void
+  /** Whether there are any identities to choose from */
+  hasIdentities: boolean
+  /** Which identity the repository uses and whether its config matches */
+  identityState: IRepositoryIdentityState | null
+  onSetRepositoryIdentity: (repository: Repository) => void
+  onApplyRepositoryIdentity: (repository: Repository) => void
 }
 
 export const generateRepositoryListContextMenu = (
@@ -60,6 +67,7 @@ export const generateRepositoryListContextMenu = (
   const items: ReadonlyArray<IMenuItem> = [
     ...buildPinMenuItems(config),
     ...buildAliasMenuItems(config),
+    ...buildIdentityMenuItems(config),
     ...buildWorktreeMenuItems(config),
     {
       label: __DARWIN__ ? 'Copy Repo Name' : 'Copy repo name',
@@ -127,6 +135,39 @@ const buildAliasMenuItems = (
     items.push({
       label: __DARWIN__ ? 'Remove Alias' : 'Remove alias',
       action: () => config.onRemoveRepositoryAlias(repository),
+    })
+  }
+
+  return items
+}
+
+const buildIdentityMenuItems = (
+  config: IRepositoryListItemContextMenuConfig
+): ReadonlyArray<IMenuItem> => {
+  const { repository, identityState } = config
+
+  if (!(repository instanceof Repository) || !config.hasIdentities) {
+    return []
+  }
+
+  const plan = identityState?.plan ?? null
+  const items: Array<IMenuItem> = [
+    {
+      label: __DARWIN__ ? 'Set Identity…' : 'Set identity…',
+      action: () => config.onSetRepositoryIdentity(repository),
+    },
+  ]
+
+  if (
+    plan !== null &&
+    (plan.changes.length > 0 || plan.warnings.length > 0) &&
+    !repository.missing
+  ) {
+    items.push({
+      label: __DARWIN__
+        ? `Apply Identity ${plan.identity.label}…`
+        : `Apply identity ${plan.identity.label}…`,
+      action: () => config.onApplyRepositoryIdentity(repository),
     })
   }
 

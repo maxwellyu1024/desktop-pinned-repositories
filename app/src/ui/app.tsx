@@ -1909,6 +1909,7 @@ export class App extends React.Component<IAppProps, IAppState> {
             dispatcher={this.props.dispatcher}
             repository={repository}
             repositoryAccount={repositoryAccount}
+            identities={this.state.identities}
             onDismissed={onPopupDismissedFn}
           />
         )
@@ -3546,6 +3547,8 @@ export class App extends React.Component<IAppProps, IAppState> {
         repositories={repositories}
         recentRepositories={this.state.recentRepositories}
         localRepositoryStateLookup={this.state.localRepositoryStateLookup}
+        repositoryIdentityStates={this.state.repositoryIdentityStates}
+        hasIdentities={this.state.identities.length > 0}
         askForConfirmationOnRemoveRepository={
           this.state.askForConfirmationOnRepositoryRemoval
         }
@@ -3756,6 +3759,17 @@ export class App extends React.Component<IAppProps, IAppState> {
       this.showWorktrees()
     }
 
+    const onSetRepositoryIdentity = (repository: Repository) => {
+      this.props.dispatcher.showPopup({
+        type: PopupType.SetRepositoriesIdentity,
+        repositories: [repository],
+      })
+    }
+
+    const onApplyRepositoryIdentity = (repository: Repository) => {
+      this.props.dispatcher.reviewRepositoryIdentities([repository], true)
+    }
+
     const onTogglePinRepository = (repository: Repository) => {
       this.props.dispatcher.changeRepositoryPinned(
         repository,
@@ -3794,6 +3808,11 @@ export class App extends React.Component<IAppProps, IAppState> {
       onViewOnGitHub: this.viewOnGitHub,
       onCreateWorktree: enableWorktreeSupport() ? onCreateWorktree : undefined,
       onShowWorktrees: enableWorktreeSupport() ? onShowWorktrees : undefined,
+      hasIdentities: this.state.identities.length > 0,
+      identityState:
+        this.state.repositoryIdentityStates.get(repository.id) ?? null,
+      onSetRepositoryIdentity: onSetRepositoryIdentity,
+      onApplyRepositoryIdentity: onApplyRepositoryIdentity,
       repository: repository,
       shellLabel: this.state.useCustomShell
         ? undefined

@@ -258,6 +258,17 @@
     }
   }
 
+  .identity-mismatch-indicator {
+    display: flex;
+    align-items: center;
+    margin-left: var(--spacing-half);
+
+    .octicon {
+      width: 12px;
+      color: var(--dialog-warning-color);
+    }
+  }
+
   .ahead-behind {
     height: 16px;
     background: var(--list-item-badge-background-color);

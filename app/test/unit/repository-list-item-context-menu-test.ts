@@ -55,6 +55,10 @@ function createMenu(
     onTogglePinRepository: noop,
     pinnedRepositories: [],
     onReorderPinnedRepositories: noop,
+    hasIdentities: false,
+    identityState: null,
+    onSetRepositoryIdentity: noop,
+    onApplyRepositoryIdentity: noop,
     ...overrides,
   })
 }
@@ -212,6 +216,56 @@ describe('generateRepositoryListContextMenu', () => {
         ),
         undefined
       )
+    })
+  })
+  describe('identities', () => {
+    const setLabel = __DARWIN__ ? 'Set Identity…' : 'Set identity…'
+    const applyLabel = __DARWIN__
+      ? 'Apply Identity Work…'
+      : 'Apply identity Work…'
+    const identityState = {
+      remote: { host: 'github.com', fullPath: 'acme/app' },
+      plan: {
+        identity: {
+          id: 'work',
+          label: 'Work',
+          authorName: 'Me',
+          authorEmail: 'me@work.com',
+          rules: [],
+        },
+        changes: [
+          {
+            key: 'user.email',
+            current: 'me@home.com',
+            next: 'me@work.com',
+            optional: false,
+          },
+        ],
+        warnings: [],
+      },
+      localEmail: 'me@home.com',
+      localName: null,
+      sshHost: null,
+    }
+
+    it('are only offered when there are identities', () => {
+      assert.equal(findItem(createMenu({}), setLabel), undefined)
+      assert.ok(findItem(createMenu({ hasIdentities: true }), setLabel))
+      assert.equal(
+        findItem(createMenu({ hasIdentities: true }), applyLabel),
+        undefined
+      )
+    })
+
+    it('applies the identity whose config differs', () => {
+      const onApplyRepositoryIdentity = mock.fn()
+      const menu = createMenu({
+        hasIdentities: true,
+        identityState,
+        onApplyRepositoryIdentity,
+      })
+      findItem(menu, applyLabel)?.action?.()
+      assert.equal(onApplyRepositoryIdentity.mock.callCount(), 1)
     })
   })
 })

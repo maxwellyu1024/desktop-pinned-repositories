@@ -25,6 +25,8 @@ import { encodePathAsUrl } from '../../lib/path'
 import { TooltippedContent } from '../lib/tooltipped-content'
 import memoizeOne from 'memoize-one'
 import { KeyboardShortcut } from '../keyboard-shortcut/keyboard-shortcut'
+import { IRepositoryIdentityState } from '../../lib/identity/repository-identity'
+import { hasIdentityMismatch } from '../../lib/identity/repository-identity-tracker'
 import { generateRepositoryListContextMenu } from '../repositories-list/repository-list-item-context-menu'
 import { enableWorktreeSupport } from '../../lib/feature-flag'
 import { SectionFilterList } from '../lib/section-filter-list'
@@ -44,6 +46,15 @@ interface IRepositoriesListProps {
     number,
     ILocalRepositoryState
   >
+
+  /** Which identity each repository uses and whether its config matches. */
+  readonly repositoryIdentityStates: ReadonlyMap<
+    number,
+    IRepositoryIdentityState
+  >
+
+  /** Whether there are any identities. */
+  readonly hasIdentities: boolean
 
   /** Called when a repository has been selected. */
   readonly onSelectionChanged: (repository: Repositoryish) => void
@@ -186,6 +197,7 @@ export class RepositoriesList extends React.Component<
         aheadBehind={item.aheadBehind}
         changedFilesCount={item.changedFilesCount}
         currentBranch={item.currentBranch}
+        identityMismatch={this.getIdentityMismatch(repository)}
         onTogglePin={this.onTogglePin}
         isDraggable={
           item.group.kind === 'pinned' && this.canReorderPinnedRepositories()
@@ -194,6 +206,13 @@ export class RepositoriesList extends React.Component<
         onRemoveDragElement={this.onRemoveRepositoryDragElement}
       />
     )
+  }
+
+  private getIdentityMismatch(repository: Repositoryish) {
+    const state = this.props.repositoryIdentityStates.get(repository.id)
+    return state?.plan != null && hasIdentityMismatch(state)
+      ? state.plan.identity.label
+      : null
   }
 
   /**
@@ -410,6 +429,11 @@ export class RepositoriesList extends React.Component<
         : undefined,
       repository,
       shellLabel: this.props.shellLabel,
+      hasIdentities: this.props.hasIdentities,
+      identityState:
+        this.props.repositoryIdentityStates.get(repository.id) ?? null,
+      onSetRepositoryIdentity: this.onSetRepositoryIdentity,
+      onApplyRepositoryIdentity: this.onApplyRepositoryIdentity,
     })
 
     showContextualMenu(items)
@@ -458,6 +482,7 @@ export class RepositoriesList extends React.Component<
           invalidationProps={{
             repositories: this.props.repositories,
             filterText: this.props.filterText,
+            repositoryIdentityStates: this.props.repositoryIdentityStates,
           }}
           onItemContextMenu={this.onItemContextMenu}
           getGroupAriaLabel={this.getGroupAriaLabelGetter(groups)}
@@ -576,6 +601,17 @@ export class RepositoriesList extends React.Component<
 
   private onRemoveRepositoryAlias = (repository: Repository) => {
     this.props.dispatcher.changeRepositoryAlias(repository, null)
+  }
+
+  private onSetRepositoryIdentity = (repository: Repository) => {
+    this.props.dispatcher.showPopup({
+      type: PopupType.SetRepositoriesIdentity,
+      repositories: [repository],
+    })
+  }
+
+  private onApplyRepositoryIdentity = (repository: Repository) => {
+    this.props.dispatcher.reviewRepositoryIdentities([repository], true)
   }
 
   private onCreateWorktree = (repository: Repository) => {

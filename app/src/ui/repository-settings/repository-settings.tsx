@@ -30,6 +30,18 @@ import {
 } from '../lib/identifier-rules'
 import { Account } from '../../models/account'
 import { Octicon } from '../octicons'
+import {
+  AutomaticIdentityBinding,
+  bindingsEqual,
+  IIdentity,
+  RepositoryIdentityBinding,
+} from '../../models/identity'
+import {
+  IIdentityPlan,
+  isSelectedByDefault,
+} from '../../lib/identity/identity-changes'
+import { loadRepositoryIdentityState } from '../../lib/identity/repository-identity'
+import { getChangeKey } from '../identities/identity-change-list'
 import * as octicons from '../octicons/octicons.generated'
 
 interface IRepositorySettingsProps {
@@ -38,6 +50,7 @@ interface IRepositorySettingsProps {
   readonly remote: IRemote | null
   readonly repository: Repository
   readonly repositoryAccount: Account | null
+  readonly identities: ReadonlyArray<IIdentity>
   readonly onDismissed: () => void
 }
 
@@ -66,6 +79,13 @@ interface IRepositorySettingsState {
   readonly errors?: ReadonlyArray<JSX.Element | string>
   readonly forkContributionTarget: ForkContributionTarget
   readonly isLoadingGitConfig: boolean
+  readonly identityBinding: RepositoryIdentityBinding
+
+  /** What using the identity changes, undefined while loading. */
+  readonly identityPlan: IIdentityPlan | null | undefined
+
+  /** Keys of the identity changes to write, see `getChangeKey`. */
+  readonly selectedIdentityChanges: ReadonlySet<string>
 }
 
 export class RepositorySettings extends React.Component<
@@ -93,6 +113,12 @@ export class RepositorySettings extends React.Component<
       initialCommitterName: null,
       initialCommitterEmail: null,
       isLoadingGitConfig: true,
+      identityBinding:
+        props.repository.identity.kind === 'none'
+          ? AutomaticIdentityBinding
+          : props.repository.identity,
+      identityPlan: undefined,
+      selectedIdentityChanges: new Set(),
     }
   }
 
@@ -123,15 +149,21 @@ export class RepositorySettings extends React.Component<
     const globalCommitterEmail =
       (await getGlobalConfigValue('user.email')) || ''
 
-    const gitConfigLocation =
-      localCommitterName === null && localCommitterEmail === null
-        ? GitConfigLocation.Global
-        : GitConfigLocation.Local
+    const usesIdentity =
+      this.props.identities.length > 0 &&
+      this.props.repository.identity.kind !== 'none' &&
+      (await this.loadIdentityPlan(this.state.identityBinding)) !== null
+
+    const gitConfigLocation = usesIdentity
+      ? GitConfigLocation.Identity
+      : localCommitterName === null && localCommitterEmail === null
+      ? GitConfigLocation.Global
+      : GitConfigLocation.Local
 
     let committerName = globalCommitterName
     let committerEmail = globalCommitterEmail
 
-    if (gitConfigLocation === GitConfigLocation.Local) {
+    if (gitConfigLocation !== GitConfigLocation.Global) {
       committerName = localCommitterName ?? ''
       committerEmail = localCommitterEmail ?? ''
     }
@@ -269,6 +301,15 @@ export class RepositorySettings extends React.Component<
             onNameChanged={this.onCommitterNameChanged}
             onEmailChanged={this.onCommitterEmailChanged}
             isLoadingGitConfig={this.state.isLoadingGitConfig}
+            repository={this.props.repository}
+            identities={this.props.identities}
+            identityBinding={this.state.identityBinding}
+            identityPlan={this.state.identityPlan}
+            selectedIdentityChanges={this.state.selectedIdentityChanges}
+            onIdentityBindingChanged={this.onIdentityBindingChanged}
+            onSelectedIdentityChangesChanged={
+              this.onSelectedIdentityChangesChanged
+            }
           />
         )
       }
@@ -346,6 +387,40 @@ export class RepositorySettings extends React.Component<
     const gitLocationChanged =
       this.state.gitConfigLocation !== this.state.initialGitConfigLocation
 
+    const { repository } = this.props
+    if (this.state.gitConfigLocation === GitConfigLocation.Identity) {
+      const plan = this.state.identityPlan
+      if (plan == null) {
+        errors.push('Choose the identity this repository uses.')
+      } else {
+        if (!bindingsEqual(this.state.identityBinding, repository.identity)) {
+          await this.props.dispatcher.setRepositoriesIdentity(
+            [repository],
+            this.state.identityBinding,
+            false
+          )
+        }
+
+        const changes = plan.changes.filter(c =>
+          this.state.selectedIdentityChanges.has(getChangeKey(repository, c))
+        )
+        if (changes.length > 0) {
+          await this.props.dispatcher.applyIdentityChanges([
+            { repository, identity: plan.identity, changes },
+          ])
+          shouldRefreshAuthor = true
+        }
+      }
+    } else if (
+      this.state.initialGitConfigLocation === GitConfigLocation.Identity
+    ) {
+      await this.props.dispatcher.setRepositoriesIdentity(
+        [repository],
+        { kind: 'none' },
+        false
+      )
+    }
+
     if (
       gitLocationChanged &&
       this.state.gitConfigLocation === GitConfigLocation.Global
@@ -417,6 +492,50 @@ export class RepositorySettings extends React.Component<
 
   private onGitConfigLocationChanged = (value: GitConfigLocation) => {
     this.setState({ gitConfigLocation: value })
+    if (
+      value === GitConfigLocation.Identity &&
+      this.state.identityPlan === undefined
+    ) {
+      this.loadIdentityPlan(this.state.identityBinding)
+    }
+  }
+
+  private onIdentityBindingChanged = (binding: RepositoryIdentityBinding) => {
+    this.setState({ identityBinding: binding, identityPlan: undefined })
+    this.loadIdentityPlan(binding)
+  }
+
+  private onSelectedIdentityChangesChanged = (
+    selectedIdentityChanges: ReadonlySet<string>
+  ) => {
+    this.setState({ selectedIdentityChanges })
+  }
+
+  /**
+   * Load what using the identity changes. Since the user chose it, every
+   * change except switching to SSH is selected.
+   */
+  private async loadIdentityPlan(binding: RepositoryIdentityBinding) {
+    const { repository, identities } = this.props
+    let plan: IIdentityPlan | null = null
+    try {
+      plan = (
+        await loadRepositoryIdentityState(repository.path, binding, identities)
+      ).plan
+    } catch (e) {
+      log.error(`Could not read the Git config of ${repository.path}`, e)
+    }
+
+    if (this.state.identityBinding === binding) {
+      const selected = (plan?.changes ?? [])
+        .filter(c => !c.optional || isSelectedByDefault(c))
+        .map(c => getChangeKey(repository, c))
+      this.setState({
+        identityPlan: plan,
+        selectedIdentityChanges: new Set(selected),
+      })
+    }
+    return plan
   }
 
   private onCommitterNameChanged = (committerName: string) => {
