@@ -16,12 +16,12 @@ Fork 与官方版可同时安装、同时运行，共享资源数为 0：
 
 | 资源 | 官方版 | Fork |
 | --- | --- | --- |
-| 产品名 / 数据目录 | GitHub Desktop | GitHub Desktop Pinned |
-| Bundle ID | com.github.GitHubClient | io.github.maxwellyu1024.GitHubDesktopPinned |
+| 产品名 / 数据目录 | GitHub Desktop | GHDock |
+| Bundle ID | com.github.GitHubClient | io.github.maxwellyu1024.GHDock |
 | 自动更新 | 开启 | 关闭（检查入口、关于对话框按钮均不出现） |
 | URL 协议 | x-github-client、github-mac、OAuth 回调 | 仅 OAuth 回调 |
-| 钥匙串前缀 | GitHub / GitHub Desktop | GitHub Desktop Pinned |
-| 命令行工具 | /usr/local/bin/github | /usr/local/bin/github-desktop-pinned |
+| 钥匙串前缀 | GitHub / GitHub Desktop | GHDock |
+| 命令行工具 | /usr/local/bin/github | /usr/local/bin/ghdock |
 
 ## 设计
 
@@ -46,7 +46,7 @@ Fork 与官方版可同时安装、同时运行，共享资源数为 0：
 
 - `script/build.ts`：Info.plist 注册的 OAuth 回调协议与运行时一致——没有 OAuth secret 时为 `x-github-desktop-dev-auth`（此前 fork 注册 `x-github-desktop-auth`、运行时监听 dev 协议，浏览器登录回调无法回到应用）。`x-github-client`、`github-mac` 仅官方注册。
 - `main.ts` 的 `possibleProtocols` 同样仅官方包含 `x-github-client` 与 Classic 协议，启动时不再抢占默认处理程序。
-- 打开本地仓库使用 `open -a "GitHub Desktop Pinned" <目录>`（`open-file` 事件）或命令行工具。
+- 打开本地仓库使用 `open -a "GHDock" <目录>`（`open-file` 事件）或命令行工具。
 
 ### 钥匙串
 
@@ -68,6 +68,6 @@ Fork 使用全新数据目录，首次启动为空；仓库通过 `open -a` 批�
 
 ## 验收
 
-- 打包产物为 `GitHub Desktop Pinned.app`，`CFBundleIdentifier` 为 `io.github.maxwellyu1024.GitHubDesktopPinned`，`CFBundleURLSchemes` 仅含 `x-github-desktop-dev-auth`。
-- 启动后数据写入 `~/Library/Application Support/GitHub Desktop Pinned`；日志无更新检查记录。
+- 打包产物为 `GHDock.app`，`CFBundleIdentifier` 为 `io.github.maxwellyu1024.GHDock`，`CFBundleURLSchemes` 仅含 `x-github-desktop-dev-auth`。
+- 启动后数据写入 `~/Library/Application Support/GHDock`；日志无更新检查记录。
 - `tsc --noEmit` 无新增错误；ESLint、Prettier 通过；相关单元测试通过。

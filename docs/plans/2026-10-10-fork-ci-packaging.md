@@ -19,17 +19,17 @@
 `%LOCALAPPDATA%\GitHubDesktop` 并覆盖官方应用，CLI `github` 也会冲突。终态：
 
 - `getWindowsIdentifierName()` 移入 `app/package-info.ts`：官方构建为 `GitHubDesktop`，
-  fork 由 `productName` 去掉非字母数字得到（`GitHubDesktopPinned`），改名时自动跟随。
+  fork 由 `productName` 去掉非字母数字得到（`GHDock`），改名时自动跟随。
 - 可执行文件、Squirrel 包名、安装目录、AppUserModelID
   （`com.squirrel.<id>.<id>`）全部使用该标识；通过 `__WINDOWS_IDENTIFIER__` 注入运行时。
 - `cli/main.ts` 按标识启动 `<id>.exe`；`static/win32/github.{bat,sh}` 中的
   `GitHubDesktop.exe` 在构建时替换为 `<id>.exe`。
-- Squirrel 写入 `bin` 的 CLI 跳板使用 `__CLI_NAME__`（`github-desktop-pinned`），与官方 `github` 并存。
+- Squirrel 写入 `bin` 的 CLI 跳板使用 `__CLI_NAME__`（`ghdock`），与官方 `github` 并存。
 - 增量包（delta）仅官方构建生成，fork 不再拉取官方更新源做差分。
 
 ## Ubuntu 打包
 
-- 可执行文件名：官方 `desktop`，fork 使用 `getCLIName()`（`github-desktop-pinned`）。
+- 可执行文件名：官方 `desktop`，fork 使用 `getCLIName()`（`ghdock`）。
 - `script/package-linux.ts` 用 `dpkg-deb --root-owner-group` 生成 `.deb`，零新增依赖：
   - `/opt/<name>/`：打包后的应用；`chrome-sandbox` 设为 `4755`，满足 Ubuntu 24.04 的沙箱要求；
   - `/usr/bin/<name>` → `/opt/<name>/<name>`；
