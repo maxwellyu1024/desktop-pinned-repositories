@@ -72,7 +72,7 @@
   - [x] 入口：提交区身份按钮（操作栏靠右）。
   - [ ] 开发版目测：右键身份子菜单、横幅撤销、管理仓库身份菜单与分组、提交区身份按钮、推荐后果显示。
   - [x] 用本机仓库模拟验证推荐后果与冲突列表（结果见方案文档，冲突仓库与预期一致）。
-- [ ] 用户替换 `/Applications/GHDock.app` 为 `dist/GHDock-darwin-arm64/GHDock.app`（da80a9f7d6 重新打包，含仓库身份、修正后的推荐与默认勾选，未签名）。
+- [ ] 用户替换 `/Applications/GHDock.app` 为 `dist/GHDock-darwin-arm64/GHDock.app`（beb46f9d9d 重新打包，含仓库身份、身份一键切换与撤销、推荐后果显示，未签名）。
 - [ ] 第 6 步：GitLab 实现。
 - [ ] 第 7 步：Gitea / Forgejo 实现。
 - [ ] 第 8 步：Bitbucket Cloud 实现。
