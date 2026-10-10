@@ -1,13 +1,21 @@
 #no-repositories {
   display: flex;
-  padding: calc(var(--spacing) * 6);
+  padding: calc(var(--spacing) * 4) calc(var(--spacing) * 6);
   align-items: center;
+  overflow-y: auto;
 
   > section {
     display: flex;
     flex-direction: column;
     flex-grow: 1;
     min-width: 0;
+
+    /*
+     * The view lays out top to bottom and centers the section, which would
+     * otherwise shrink to the width of its content and squeeze the panes.
+     */
+    width: 100%;
+    max-width: 760px;
   }
 
   header {
@@ -49,10 +57,6 @@
         padding-left: var(--spacing);
       }
     }
-  }
-
-  .get-started-actions {
-    overflow-y: auto;
   }
 
   .get-started-group {
