@@ -3,7 +3,11 @@
 import * as cp from 'child_process'
 import * as path from 'path'
 import * as electronInstaller from 'electron-winstaller'
-import { getProductName, getCompanyName } from '../app/package-info'
+import {
+  getProductName,
+  getCompanyName,
+  isOfficialApp,
+} from '../app/package-info'
 import {
   getDistPath,
   getOSXZipPath,
@@ -72,6 +76,21 @@ function packageOSX() {
   )
 }
 
+/**
+ * “程序和功能”中显示的图标，Squirrel 安装时下载。fork 使用仓库中的图标，
+ * 在 GitHub Actions 中固定到构建所用的提交。
+ */
+function getWindowsIconUrl() {
+  if (isOfficialApp()) {
+    return 'https://desktop.githubusercontent.com/app-icon.ico'
+  }
+
+  const repository =
+    process.env.GITHUB_REPOSITORY ?? 'maxwellyu1024/desktop-pinned-repositories'
+  const ref = process.env.GITHUB_SHA ?? 'development'
+  return `https://raw.githubusercontent.com/${repository}/${ref}/app/static/logos/prod/icon-logo.ico`
+}
+
 function packageWindows() {
   const iconSource = join(getIconDirectory(), 'icon-logo.ico')
 
@@ -92,7 +111,7 @@ function packageWindows() {
     process.exit(1)
   }
 
-  const iconUrl = 'https://desktop.githubusercontent.com/app-icon.ico'
+  const iconUrl = getWindowsIconUrl()
 
   const nugetPkgName = getWindowsIdentifierName()
   const options: electronInstaller.Options = {

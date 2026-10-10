@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="400" height="400" viewBox="0 0 400 400">
+  <rect width="400" height="400" fill="#1c1c1c"/>
+  <image x="120" y="72" width="160" height="160" xlink:href="prod/icon-logo.svg"/>
+  <g font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" text-anchor="middle">
+    <text x="200" y="285" font-size="34" fill="#f2f2f2">GHDock</text>
+    <text x="200" y="322" font-size="15" fill="#a6a6a6">GHDock is being installed.</text>
+    <text x="200" y="344" font-size="15" fill="#a6a6a6">It'll launch once it is done.</text>
+  </g>
+</svg>
