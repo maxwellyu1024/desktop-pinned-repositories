@@ -1,0 +1,70 @@
+# fork 专用：推送 development 后自动打包 macOS arm64 安装包。
+# 不依赖任何签名证书或密钥，采用与本地一致的临时签名（ad-hoc）。
+name: Fork Package
+
+on:
+  push:
+    branches:
+      - development
+  workflow_dispatch:
+
+concurrency:
+  group: fork-package-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 24.19.0
+  RELEASE_TAG: development-latest
+
+jobs:
+  package-macos:
+    name: Package macOS arm64
+    # 只在 fork 中运行，上游仓库不受影响
+    if: github.repository != 'desktop/desktop'
+    runs-on: macos-14
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-ci-environment
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          arch: arm64
+      # GITHUB_ACTIONS=false 让构建脚本走本地流程，跳过官方的钥匙串与公证步骤
+      - name: Build production app
+        run: yarn build:prod
+        env:
+          GITHUB_ACTIONS: 'false'
+          npm_config_arch: arm64
+          TARGET_ARCH: arm64
+      - name: Ad-hoc sign app
+        run: |
+          app=$(ls -d dist/*-darwin-arm64/*.app)
+          codesign --force --deep --sign - "$app"
+          codesign --verify --deep --strict "$app"
+      - name: Package app
+        run: yarn package
+        env:
+          GITHUB_ACTIONS: 'false'
+          npm_config_arch: arm64
+          TARGET_ARCH: arm64
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: macOS-arm64
+          path: dist/*-arm64.zip
+          retention-days: 30
+      # 滚动更新同一个预发布版本，始终指向 development 最新一次构建
+      - name: Publish rolling prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete "$RELEASE_TAG" --cleanup-tag --yes || true
+          gh release create "$RELEASE_TAG" dist/*-arm64.zip \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Development build (${GITHUB_SHA::7})" \
+            --notes "development 分支 ${GITHUB_SHA} 的自动构建（macOS arm64，临时签名）。首次打开需右键 → 打开。"
