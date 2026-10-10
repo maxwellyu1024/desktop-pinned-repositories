@@ -1,6 +1,6 @@
 import { IIdentity, IIdentityRule } from '../../models/identity'
 import { IRepositoryIdentityState } from './repository-identity'
-import { getRemoteAlias } from './match-identity'
+import { getRemoteAlias, matchIdentity } from './match-identity'
 
 /** An identity suggested from how existing repositories are set up. */
 export interface IIdentitySuggestion {
@@ -162,4 +162,89 @@ export function inferIdentities(
   }
 
   return suggestions.sort((a, b) => b.repositoryCount - a.repositoryCount)
+}
+
+/** A repository that doesn't use an identity yet, by name. */
+export interface INamedIdentityState {
+  readonly name: string
+  readonly state: IRepositoryIdentityState
+}
+
+/** What adding a suggested identity does to the repositories it matches. */
+export interface ISuggestionEffects {
+  /** How many repositories would use it. */
+  readonly repositoryCount: number
+
+  /** How many have no local author yet, which is written without asking. */
+  readonly fillCount: number
+
+  /**
+   * The repositories whose local author differs from it, or whose SSH remote
+   * doesn't use its SSH host. They show up as not set up once it's added.
+   */
+  readonly conflicts: ReadonlyArray<string>
+}
+
+const equalsIgnoringCase = (a: string, b: string) =>
+  a.toLowerCase() === b.toLowerCase()
+
+function conflictsWith(
+  identity: Omit<IIdentity, 'id'>,
+  state: IRepositoryIdentityState
+) {
+  const { localEmail, localName, remote } = state
+  const alias = identity.sshHostAlias
+  return (
+    (localEmail !== null &&
+      !equalsIgnoringCase(localEmail, identity.authorEmail)) ||
+    (localName !== null && localName !== identity.authorName) ||
+    (alias !== undefined &&
+      remote?.sshHost != null &&
+      !equalsIgnoringCase(remote.sshHost, alias))
+  )
+}
+
+/**
+ * Work out, for each suggestion, which repositories that don't use an
+ * identity yet would use it alongside the existing identities and the other
+ * selected suggestions, and how their config compares to it.
+ */
+export function getSuggestionEffects(
+  repositories: ReadonlyArray<INamedIdentityState>,
+  existing: ReadonlyArray<IIdentity>,
+  suggestions: ReadonlyArray<Omit<IIdentity, 'id'>>,
+  selected: ReadonlySet<number>
+): ReadonlyArray<ISuggestionEffects> {
+  const idOf = (index: number) => `\0suggestion:${index}`
+
+  return suggestions.map((suggestion, index) => {
+    const identities = [
+      ...existing,
+      ...suggestions
+        .map((s, i) => ({ ...s, id: idOf(i) }))
+        .filter((_, i) => i === index || selected.has(i)),
+    ]
+
+    let repositoryCount = 0
+    let fillCount = 0
+    const conflicts = new Array<string>()
+
+    for (const { name, state } of repositories) {
+      if (state.plan !== null || state.remote === null) {
+        continue
+      }
+      if (matchIdentity(identities, state.remote)?.id !== idOf(index)) {
+        continue
+      }
+
+      repositoryCount++
+      if (conflictsWith(suggestion, state)) {
+        conflicts.push(name)
+      } else if (state.localEmail === null || state.localName === null) {
+        fillCount++
+      }
+    }
+
+    return { repositoryCount, fillCount, conflicts }
+  })
 }

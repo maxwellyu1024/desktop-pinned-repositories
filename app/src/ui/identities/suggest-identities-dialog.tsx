@@ -3,8 +3,11 @@ import { Dispatcher } from '../dispatcher'
 import { Repository } from '../../models/repository'
 import { IIdentity } from '../../models/identity'
 import {
+  getSuggestionEffects,
   IIdentitySuggestion,
+  INamedIdentityState,
   inferIdentities,
+  ISuggestionEffects,
 } from '../../lib/identity/infer-identities'
 import { getGlobalConfigValue } from '../../lib/git/config'
 import { Dialog, DialogContent, DialogFooter } from '../dialog'
@@ -22,33 +25,54 @@ interface ISuggestIdentitiesDialogProps {
 interface ISuggestIdentitiesDialogState {
   /** Null while the repositories are being read. */
   readonly suggestions: ReadonlyArray<IIdentitySuggestion> | null
+  /** The repositories the suggestions may apply to. */
+  readonly repositories: ReadonlyArray<INamedIdentityState>
   readonly selected: ReadonlySet<number>
   readonly saving: boolean
 }
 
 interface ISuggestionRowProps {
   readonly suggestion: IIdentitySuggestion
+  readonly effects: ISuggestionEffects
   readonly index: number
   readonly checked: boolean
   readonly onToggle: (index: number, checked: boolean) => void
 }
+
+/** How many conflicting repositories to name. */
+const ShownConflicts = 3
 
 class SuggestionRow extends React.Component<ISuggestionRowProps> {
   private onChange = (event: React.FormEvent<HTMLInputElement>) => {
     this.props.onToggle(this.props.index, event.currentTarget.checked)
   }
 
+  private renderEffects() {
+    const { repositoryCount, fillCount, conflicts } = this.props.effects
+    const shown = conflicts.slice(0, ShownConflicts)
+    const more = conflicts.length - shown.length
+
+    return (
+      <span className="identity-suggestion-detail">
+        {repositoryCount}{' '}
+        {repositoryCount === 1 ? 'repository' : 'repositories'}
+        {fillCount > 0 && ` · ${fillCount} to fill in`}
+        {conflicts.length > 0 && (
+          <span className="identity-mismatch">
+            {' '}
+            · {conflicts.length} set up differently: {shown.join(', ')}
+            {more > 0 && ` and ${more} more`}
+          </span>
+        )}
+      </span>
+    )
+  }
+
   public render() {
-    const { identity, repositoryCount } = this.props.suggestion
+    const { identity } = this.props.suggestion
     const label = (
       <span className="identity-suggestion">
-        <span className="identity-suggestion-title">
-          {identity.label}
-          <span className="identity-suggestion-count">
-            {repositoryCount}{' '}
-            {repositoryCount === 1 ? 'repository' : 'repositories'}
-          </span>
-        </span>
+        <span className="identity-suggestion-title">{identity.label}</span>
         <span className="identity-suggestion-detail">
           {identity.authorName} &lt;{identity.authorEmail}&gt;
           {identity.sshHostAlias !== undefined &&
@@ -57,6 +81,7 @@ class SuggestionRow extends React.Component<ISuggestionRowProps> {
         <span className="identity-suggestion-detail">
           {formatRules(identity.rules).split('\n').join(', ')}
         </span>
+        {this.renderEffects()}
       </span>
     )
 
@@ -82,7 +107,12 @@ export class SuggestIdentitiesDialog extends React.Component<
 > {
   public constructor(props: ISuggestIdentitiesDialogProps) {
     super(props)
-    this.state = { suggestions: null, selected: new Set(), saving: false }
+    this.state = {
+      suggestions: null,
+      repositories: [],
+      selected: new Set(),
+      saving: false,
+    }
   }
 
   public async componentDidMount() {
@@ -104,6 +134,10 @@ export class SuggestIdentitiesDialog extends React.Component<
     )
     this.setState({
       suggestions,
+      repositories: repositories.flatMap(r => {
+        const state = states.get(r.id)
+        return state === undefined ? [] : [{ name: r.alias ?? r.name, state }]
+      }),
       selected: new Set(suggestions.map((_, i) => i)),
     })
   }
@@ -148,17 +182,28 @@ export class SuggestIdentitiesDialog extends React.Component<
       )
     }
 
+    const effects = getSuggestionEffects(
+      this.state.repositories,
+      this.props.identities,
+      suggestions.map(s => s.identity),
+      this.state.selected
+    )
+
     return (
       <>
         <p className="identities-description">
           These identities are based on the remotes, authors and SSH hosts your
-          repositories use now. You can edit them after adding them.
+          repositories use now. Repositories without a local author get it right
+          away. Those set up differently are left as they are and show up as not
+          set up, to switch from their Identity menu in one click. You can edit
+          identities after adding them.
         </p>
         <ul className="identity-suggestions">
           {suggestions.map((suggestion, i) => (
             <SuggestionRow
               key={i}
               suggestion={suggestion}
+              effects={effects[i]}
               index={i}
               checked={this.state.selected.has(i)}
               onToggle={this.onToggle}

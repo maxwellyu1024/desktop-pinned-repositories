@@ -17,7 +17,10 @@ import {
   formatRules,
   parseRules,
 } from '../../../src/lib/identity/identity-rules'
-import { inferIdentities } from '../../../src/lib/identity/infer-identities'
+import {
+  getSuggestionEffects,
+  inferIdentities,
+} from '../../../src/lib/identity/infer-identities'
 import { IRepositoryIdentityState } from '../../../src/lib/identity/repository-identity'
 import { IIdentity } from '../../../src/models/identity'
 
@@ -382,6 +385,54 @@ describe('identity', () => {
           2,
         ],
       ])
+    })
+
+    it('tells which repositories suggestions fill in and conflict with', () => {
+      const named = (
+        name: string,
+        fullPath: string,
+        email: string | null,
+        sshHost: string | null = null
+      ) => ({ name, state: state(fullPath, email, sshHost) })
+      const repositories = [
+        named('filled', 'acme/a', null, 'work-host'),
+        named('same', 'acme/b', 'me@work.com', 'work-host'),
+        named('other author', 'acme/c', 'me@home.com', 'work-host'),
+        named('real host', 'acme/d', null, 'github.com'),
+        named('https', 'acme/e', null),
+        named('elsewhere', 'other/f', null),
+      ]
+      const work = {
+        label: 'work',
+        authorName: 'Local Name',
+        authorEmail: 'me@work.com',
+        sshHostAlias: 'work-host',
+        rules: [{ host: 'github.com', namespace: 'acme' }],
+      }
+      const everything = { ...work, label: 'all', sshHostAlias: undefined }
+      everything.rules = [{ host: 'github.com', namespace: '' }]
+
+      assert.deepStrictEqual(
+        getSuggestionEffects(
+          repositories,
+          [],
+          [work, everything],
+          new Set([0])
+        ),
+        [
+          {
+            repositoryCount: 5,
+            fillCount: 2,
+            conflicts: ['other author', 'real host'],
+          },
+          { repositoryCount: 1, fillCount: 1, conflicts: [] },
+        ]
+      )
+      assert.equal(
+        getSuggestionEffects(repositories, [], [work, everything], new Set())[1]
+          .repositoryCount,
+        6
+      )
     })
   })
 
