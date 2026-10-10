@@ -275,6 +275,31 @@ describe('RepositoriesStore', () => {
       assert.equal(reloaded.isPinned, false)
     })
 
+    it('pins and unpins several repositories at once', async () => {
+      const [a, b, c] = await addRepositories('/a', '/b', '/c')
+
+      await repositoriesStore.updateRepositoryPinned(b, true)
+      await repositoriesStore.updateRepositoriesPinned([c, b, a], true)
+      assert.deepStrictEqual(
+        await pinOrders(),
+        new Map([
+          ['/a', 2],
+          ['/b', 0],
+          ['/c', 1],
+        ])
+      )
+
+      await repositoriesStore.updateRepositoriesPinned([a, c], false)
+      assert.deepStrictEqual(
+        await pinOrders(),
+        new Map([
+          ['/a', null],
+          ['/b', 0],
+          ['/c', null],
+        ])
+      )
+    })
+
     it('persists the order of the pinned group', async () => {
       const [a, b, c] = await addRepositories('/a', '/b', '/c')
 

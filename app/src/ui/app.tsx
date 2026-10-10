@@ -3128,6 +3128,8 @@ export class App extends React.Component<IAppProps, IAppState> {
             key="manage-repositories"
             dispatcher={this.props.dispatcher}
             repositories={this.localRepositories}
+            identities={this.state.identities}
+            repositoryIdentityStates={this.state.repositoryIdentityStates}
             onDismissed={onPopupDismissedFn}
           />
         )

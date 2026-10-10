@@ -250,6 +250,12 @@
     align-items: center;
     gap: var(--spacing-double);
 
+    .bulk-actions {
+      display: flex;
+      gap: var(--spacing-half);
+      flex-shrink: 0;
+    }
+
     .removal-options {
       flex: 1;
       min-width: 0;

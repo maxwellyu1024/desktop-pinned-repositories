@@ -5073,6 +5073,17 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */
+  public async _changeRepositoriesPinned(
+    repositories: ReadonlyArray<Repository>,
+    isPinned: boolean
+  ): Promise<void> {
+    return this.repositoriesStore.updateRepositoriesPinned(
+      repositories,
+      isPinned
+    )
+  }
+
+  /** This shouldn't be called directly. See `Dispatcher`. */
   public async _reorderPinnedRepositories(
     repositories: ReadonlyArray<Repository>
   ): Promise<void> {

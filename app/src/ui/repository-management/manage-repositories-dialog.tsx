@@ -15,10 +15,20 @@ import {
   RepositoryPicker,
 } from './repository-picker'
 import { IRepositoryRemote, loadRepositoryRemotes } from './repository-remotes'
+import { Button } from '../lib/button'
+import { IIdentity } from '../../models/identity'
+import { PopupType } from '../../models/popup'
+import { IRepositoryIdentityState } from '../../lib/identity/repository-identity'
+import { hasIdentityMismatch } from '../../lib/identity/repository-identity-tracker'
 
 interface IManageRepositoriesDialogProps {
   readonly dispatcher: Dispatcher
   readonly repositories: ReadonlyArray<Repository>
+  readonly identities: ReadonlyArray<IIdentity>
+  readonly repositoryIdentityStates: ReadonlyMap<
+    number,
+    IRepositoryIdentityState
+  >
   readonly onDismissed: () => void
 }
 
@@ -31,6 +41,7 @@ interface IManageRepositoriesDialogState {
   readonly remotes: ReadonlyMap<string, IRepositoryRemote | null> | null
   readonly moveToTrash: boolean
   readonly removing: boolean
+  readonly pinning: boolean
 }
 
 const keyOf = (repository: Repository) => repository.id.toString()
@@ -57,6 +68,7 @@ export class ManageRepositoriesDialog extends React.Component<
       remotes: null,
       moveToTrash: false,
       removing: false,
+      pinning: false,
     }
   }
 
@@ -89,6 +101,17 @@ export class ManageRepositoriesDialog extends React.Component<
       : this.state.remotes?.get(repository.path)
   }
 
+  /** The identity the repository uses, and whether its config differs. */
+  private getIdentityNote(repository: Repository) {
+    const state = this.props.repositoryIdentityStates.get(repository.id)
+    if (state?.plan == null) {
+      return undefined
+    }
+    return hasIdentityMismatch(state)
+      ? `${state.plan.identity.label}, not set up`
+      : state.plan.identity.label
+  }
+
   private getItems(): ReadonlyArray<IRepositoryPickerItem> {
     return this.repositories.map(r => ({
       key: keyOf(r),
@@ -98,7 +121,51 @@ export class ManageRepositoriesDialog extends React.Component<
       path: r.path,
       pinned: r.isPinned,
       missing: r.missing,
+      note: this.getIdentityNote(r),
     }))
+  }
+
+  /**
+   * Groups by identity: one per identity, the repositories that use none, and
+   * the ones whose config differs from their identity.
+   */
+  private getIdentityGroups(
+    repositories: ReadonlyArray<Repository>
+  ): ReadonlyArray<IRepositoryGroup> {
+    const states = this.props.repositoryIdentityStates
+    if (this.props.identities.length === 0) {
+      return []
+    }
+
+    const keysOf = (filter: (state: IRepositoryIdentityState) => boolean) =>
+      repositories
+        .filter(r => {
+          const state = states.get(r.id)
+          return state !== undefined && filter(state)
+        })
+        .map(keyOf)
+
+    const groups: ReadonlyArray<IRepositoryGroup> = [
+      ...this.props.identities.map(identity => ({
+        key: `identity:${identity.id}`,
+        label: identity.label,
+        keys: keysOf(s => s.plan?.identity.id === identity.id),
+      })),
+      {
+        key: 'identity-none',
+        label: __DARWIN__ ? 'No Identity' : 'No identity',
+        keys: keysOf(s => s.plan === null),
+      },
+      {
+        key: 'identity-mismatch',
+        label: __DARWIN__ ? 'Not Set Up' : 'Not set up',
+        keys: keysOf(hasIdentityMismatch),
+      },
+    ]
+
+    return groups
+      .filter(g => g.keys.length > 0)
+      .map((g, i) => (i === 0 ? { ...g, heading: 'Identities' } : g))
   }
 
   private getGroups(): ReadonlyArray<IRepositoryGroup> {
@@ -114,6 +181,7 @@ export class ManageRepositoriesDialog extends React.Component<
 
     return [
       ...groups.filter(g => g.key === AllGroup || g.keys.length > 0),
+      ...this.getIdentityGroups(repositories),
       ...getRemoteGroups(
         repositories.map(r => ({ key: keyOf(r), remote: this.getRemote(r) }))
       ),
@@ -121,7 +189,7 @@ export class ManageRepositoriesDialog extends React.Component<
   }
 
   /** The selected repositories in the current list. */
-  private getRepositoriesToRemove() {
+  private getSelectedRepositories() {
     const { groupKey, filterText, selectedKeys } = this.state
     const listed = getListedItems(
       this.getItems(),
@@ -154,10 +222,60 @@ export class ManageRepositoriesDialog extends React.Component<
   private onSubmit = async () => {
     this.setState({ removing: true })
     await this.props.dispatcher.removeRepositories(
-      this.getRepositoriesToRemove(),
+      this.getSelectedRepositories(),
       this.state.moveToTrash
     )
     this.setState({ removing: false, selectedKeys: new Set() })
+  }
+
+  private async setPinned(isPinned: boolean) {
+    this.setState({ pinning: true })
+    await this.props.dispatcher.changeRepositoriesPinned(
+      this.getSelectedRepositories(),
+      isPinned
+    )
+    this.setState({ pinning: false })
+  }
+
+  private onPin = () => this.setPinned(true)
+  private onUnpin = () => this.setPinned(false)
+
+  private onSetIdentity = () => {
+    this.props.dispatcher.showPopup({
+      type: PopupType.SetRepositoriesIdentity,
+      repositories: this.getSelectedRepositories(),
+    })
+  }
+
+  private renderBulkActions(selected: ReadonlyArray<Repository>) {
+    const busy = this.state.pinning || this.state.removing
+    return (
+      <div className="bulk-actions">
+        <Button
+          size="small"
+          onClick={this.onPin}
+          disabled={busy || !selected.some(r => !r.isPinned)}
+        >
+          Pin
+        </Button>
+        <Button
+          size="small"
+          onClick={this.onUnpin}
+          disabled={busy || !selected.some(r => r.isPinned)}
+        >
+          Unpin
+        </Button>
+        {this.props.identities.length > 0 && (
+          <Button
+            size="small"
+            onClick={this.onSetIdentity}
+            disabled={busy || selected.length === 0}
+          >
+            {__DARWIN__ ? 'Set Identity…' : 'Set identity…'}
+          </Button>
+        )}
+      </div>
+    )
   }
 
   private getRemoveButtonText(count: number) {
@@ -184,7 +302,8 @@ export class ManageRepositoriesDialog extends React.Component<
   }
 
   public render() {
-    const count = this.getRepositoriesToRemove().length
+    const selected = this.getSelectedRepositories()
+    const count = selected.length
 
     return (
       <Dialog
@@ -211,6 +330,7 @@ export class ManageRepositoriesDialog extends React.Component<
         </DialogContent>
         <DialogFooter>
           <div className="repository-picker-footer">
+            {this.renderBulkActions(selected)}
             <div className="removal-options">
               <Checkbox
                 className={this.state.moveToTrash ? 'trash' : undefined}

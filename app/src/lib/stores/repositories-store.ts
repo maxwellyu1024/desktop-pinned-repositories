@@ -405,14 +405,24 @@ export class RepositoriesStore extends TypedBaseStore<
     repository: Repository,
     isPinned: boolean
   ): Promise<void> {
+    return this.updateRepositoriesPinned([repository], isPinned)
+  }
+
+  /**
+   * Pin or unpin repositories. Newly pinned ones go to the end of the pinned
+   * group in the given order, already pinned ones keep their place.
+   */
+  public async updateRepositoriesPinned(
+    repositories: ReadonlyArray<Repository>,
+    isPinned: boolean
+  ): Promise<void> {
     await this.db.transaction('rw', this.db.repositories, async () => {
       if (!isPinned) {
-        await this.db.repositories.update(repository.id, { pinOrder: null })
-        return
-      }
-
-      const record = await this.db.repositories.get(repository.id)
-      if (record === undefined || (record.pinOrder ?? null) !== null) {
+        await Promise.all(
+          repositories.map(r =>
+            this.db.repositories.update(r.id, { pinOrder: null })
+          )
+        )
         return
       }
 
@@ -423,9 +433,14 @@ export class RepositoriesStore extends TypedBaseStore<
         }
       })
 
-      await this.db.repositories.update(repository.id, {
-        pinOrder: lastPinOrder + 1,
-      })
+      for (const repository of repositories) {
+        const record = await this.db.repositories.get(repository.id)
+        if (record !== undefined && (record.pinOrder ?? null) === null) {
+          await this.db.repositories.update(repository.id, {
+            pinOrder: ++lastPinOrder,
+          })
+        }
+      }
     })
 
     this.emitUpdatedRepositories()

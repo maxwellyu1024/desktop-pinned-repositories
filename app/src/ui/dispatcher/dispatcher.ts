@@ -972,6 +972,14 @@ export class Dispatcher {
     return this.appStore._changeRepositoryPinned(repository, isPinned)
   }
 
+  /** Pins or unpins several repositories at once. */
+  public changeRepositoriesPinned(
+    repositories: ReadonlyArray<Repository>,
+    isPinned: boolean
+  ): Promise<void> {
+    return this.appStore._changeRepositoriesPinned(repositories, isPinned)
+  }
+
   /**
    * Reorders the pinned group of the repository list.
    *
