@@ -29,3 +29,9 @@
 
 Windows “程序和功能”的图标（Squirrel `iconUrl`）在 fork 构建中指向仓库内的
 `app/static/logos/prod/icon-logo.ico`，GitHub Actions 中固定到构建提交。
+
+## 窗口标题栏
+
+Windows 自绘标题栏左上角的应用标识由 GitHub 章鱼猫换为 `appMark`
+（`app/src/ui/octicons/app-mark.ts`）：同样的 “GHD” 字母与横条，按 16px 高度绘制，
+沿用标题栏的前景色与失焦半透明效果。Linux 使用系统标题栏，窗口图标为 `icon-logo.png`。
