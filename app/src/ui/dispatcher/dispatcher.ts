@@ -264,14 +264,11 @@ export class Dispatcher {
   }
 
   /**
-   * Replace the identities, then review the repositories whose config no
-   * longer matches the identities that changed.
+   * Replace the identities, then review the repositories they affect whose
+   * config doesn't match.
    */
-  public saveIdentities(
-    identities: ReadonlyArray<IIdentity>,
-    changedIdentityIDs: ReadonlyArray<string>
-  ): Promise<void> {
-    return this.appStore._saveIdentities(identities, changedIdentityIDs)
+  public saveIdentities(identities: ReadonlyArray<IIdentity>): Promise<void> {
+    return this.appStore._saveIdentities(identities)
   }
 
   /** Set how the repositories choose the identity they use. */

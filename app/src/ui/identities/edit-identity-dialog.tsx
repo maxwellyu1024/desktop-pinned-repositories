@@ -162,7 +162,7 @@ export class EditIdentityDialog extends React.Component<
       : [...this.props.identities, identity]
 
     this.setState({ saving: true })
-    await this.props.dispatcher.saveIdentities(identities, [identity.id])
+    await this.props.dispatcher.saveIdentities(identities)
     this.props.onDismissed()
   }
 

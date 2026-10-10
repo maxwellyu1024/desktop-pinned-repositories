@@ -241,6 +241,7 @@ describe('generateRepositoryListContextMenu', () => {
             optional: false,
           },
         ],
+        applied: false,
         warnings: [],
       },
       localEmail: 'me@home.com',

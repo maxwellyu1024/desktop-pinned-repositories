@@ -19,9 +19,8 @@ interface IApplyIdentitiesDialogProps {
   }>
 
   /**
-   * Whether the user asked for the identities, e.g. chose one for these
-   * repositories. Then replacing existing values is selected by default,
-   * otherwise only setting values that aren't set yet is.
+   * Whether the user chose the identities for these repositories. See
+   * `isSelectedByDefault` for which changes are selected.
    */
   readonly explicit: boolean
 
@@ -51,10 +50,7 @@ export class ApplyIdentitiesDialog extends React.Component<
     const selected = new Set<string>()
     for (const { repository, plan } of props.entries) {
       for (const change of plan.changes) {
-        if (
-          isSelectedByDefault(change) ||
-          (props.explicit && !change.optional)
-        ) {
+        if (isSelectedByDefault(change, plan, props.explicit)) {
           selected.add(getChangeKey(repository, change))
         }
       }
@@ -138,7 +134,7 @@ export class ApplyIdentitiesDialog extends React.Component<
           <p className="identities-description">
             {this.props.explicit
               ? 'These changes are written to the local Git config (.git/config) of each repository.'
-              : 'These repositories match an identity. Select the changes to write to their local Git config (.git/config). Values that are already set are only replaced if you select them.'}
+              : 'These repositories match an identity. Select the changes to write to their local Git config (.git/config). Values set other than by the identity are only replaced if you select them.'}
           </p>
           <div className="identity-entries">
             {this.props.entries.map(this.renderEntry)}

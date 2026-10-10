@@ -160,8 +160,7 @@ export class Identities extends React.Component<
   private onRemove = (identity: IIdentity) => {
     this.setState({ confirmingRemoval: null })
     this.props.dispatcher.saveIdentities(
-      this.props.identities.filter(i => i.id !== identity.id),
-      []
+      this.props.identities.filter(i => i.id !== identity.id)
     )
   }
 
@@ -171,10 +170,7 @@ export class Identities extends React.Component<
     identities.splice(index + offset, 0, moved)
     // The order breaks ties between rules, so it may change which identity
     // repositories use.
-    this.props.dispatcher.saveIdentities(
-      identities,
-      identities.map(i => i.id)
-    )
+    this.props.dispatcher.saveIdentities(identities)
   }
 
   private getCounts() {

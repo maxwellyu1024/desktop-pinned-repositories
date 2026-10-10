@@ -41,6 +41,11 @@ export interface IIdentityChange {
 export interface IIdentityPlan {
   readonly identity: IIdentity
   readonly changes: ReadonlyArray<IIdentityChange>
+  /**
+   * Whether the identity was applied to the repository before, so the values
+   * it would replace are ones it wrote.
+   */
+  readonly applied: boolean
   /** Why something the identity asks for can't be applied. */
   readonly warnings: ReadonlyArray<string>
 }
@@ -73,11 +78,20 @@ export function isOverwrite(change: IIdentityChange) {
 }
 
 /**
- * Whether a change is made without asking: one that sets a value that isn't
- * set yet, or removes signing settings this identity wrote earlier.
+ * Whether a change is selected without asking. Switching to SSH never is.
+ * Otherwise a change is when it sets a value that isn't set yet, when the
+ * value it replaces was written by the same identity, or when the user chose
+ * the identity for the repository.
+ *
+ * @param explicit Whether the user chose the identity for the repository,
+ *                 rather than it being matched by rules.
  */
-export function isSelectedByDefault(change: IIdentityChange) {
-  return !change.optional && (!isOverwrite(change) || change.next === null)
+export function isSelectedByDefault(
+  change: IIdentityChange,
+  plan: IIdentityPlan,
+  explicit: boolean
+) {
+  return !change.optional && (explicit || plan.applied || !isOverwrite(change))
 }
 
 /**
@@ -93,6 +107,7 @@ export function computeIdentityChanges(
   const changes = new Array<IIdentityChange>()
   const warnings = new Array<string>()
 
+  const applied = config.get(IdentityMarkerKey) === identity.id
   const change = (key: string, next: string | null, optional = false) => {
     const current = config.get(key) ?? null
     if (current !== next) {
@@ -109,7 +124,7 @@ export function computeIdentityChanges(
     if (!isTrue(config.get('commit.gpgsign') ?? null)) {
       change('commit.gpgsign', 'true')
     }
-  } else if (config.get(IdentityMarkerKey) === identity.id) {
+  } else if (applied) {
     // The signing settings were written when the identity still had them.
     for (const key of SigningKeys) {
       change(key, null)
@@ -129,7 +144,7 @@ export function computeIdentityChanges(
     }
   }
 
-  return { identity, changes, warnings }
+  return { identity, changes, applied, warnings }
 }
 
 /**

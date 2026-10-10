@@ -124,10 +124,10 @@ export class SuggestIdentitiesDialog extends React.Component<
       .map(s => ({ ...s.identity, id: crypto.randomUUID() }))
 
     this.setState({ saving: true })
-    await this.props.dispatcher.saveIdentities(
-      [...this.props.identities, ...added],
-      added.map(i => i.id)
-    )
+    await this.props.dispatcher.saveIdentities([
+      ...this.props.identities,
+      ...added,
+    ])
     this.props.onDismissed()
   }
 

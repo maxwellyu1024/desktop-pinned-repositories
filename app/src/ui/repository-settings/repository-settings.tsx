@@ -527,9 +527,12 @@ export class RepositorySettings extends React.Component<
     }
 
     if (this.state.identityBinding === binding) {
-      const selected = (plan?.changes ?? [])
-        .filter(c => !c.optional || isSelectedByDefault(c))
-        .map(c => getChangeKey(repository, c))
+      const selected =
+        plan === null
+          ? []
+          : plan.changes
+              .filter(c => isSelectedByDefault(c, plan, true))
+              .map(c => getChangeKey(repository, c))
       this.setState({
         identityPlan: plan,
         selectedIdentityChanges: new Set(selected),

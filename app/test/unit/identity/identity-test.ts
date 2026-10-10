@@ -146,21 +146,55 @@ describe('identity', () => {
           c.key,
           c.current,
           c.next,
-          isSelectedByDefault(c),
+          isSelectedByDefault(c, plan, false),
+          isSelectedByDefault(c, plan, true),
         ]),
         [
-          ['user.email', 'me@home.com', 'me@work.com', false],
-          ['user.signingkey', null, '~/.ssh/work.pub', true],
-          ['gpg.format', null, 'ssh', true],
+          ['user.email', 'me@home.com', 'me@work.com', false, true],
+          ['user.signingkey', null, '~/.ssh/work.pub', true, true],
+          ['gpg.format', null, 'ssh', true, true],
           [
             'remote.origin.url',
             'git@github.com:acme/app.git',
             'git@work:acme/app.git',
             false,
+            true,
           ],
         ]
       )
       assert.deepStrictEqual(plan.warnings, [])
+    })
+
+    it('replaces values the identity wrote without asking', () => {
+      const plan = computeIdentityChanges(
+        identity('work', [], { authorEmail: 'new@work.com' }),
+        config({
+          'user.name': 'work name',
+          'user.email': 'old@work.com',
+          'ghdock.identity': 'work',
+        }),
+        resolveHost
+      )
+      assert.equal(plan.applied, true)
+      assert.deepStrictEqual(
+        plan.changes.map(c => [c.key, isSelectedByDefault(c, plan, false)]),
+        [['user.email', true]]
+      )
+
+      const other = computeIdentityChanges(
+        identity('home', [], { authorEmail: 'new@work.com' }),
+        config({
+          'user.name': 'home name',
+          'user.email': 'old@work.com',
+          'ghdock.identity': 'work',
+        }),
+        resolveHost
+      )
+      assert.equal(other.applied, false)
+      assert.deepStrictEqual(
+        other.changes.map(c => [c.key, isSelectedByDefault(c, other, false)]),
+        [['user.email', false]]
+      )
     })
 
     it('only switches HTTPS remotes to SSH on request', () => {
@@ -172,6 +206,10 @@ describe('identity', () => {
       const remote = plan.changes.find(c => c.key === 'remote.origin.url')
       assert.equal(remote?.next, 'git@work:acme/app.git')
       assert.equal(remote?.optional, true)
+      assert.equal(
+        remote !== undefined && isSelectedByDefault(remote, plan, true),
+        false
+      )
     })
 
     it('leaves remotes alone when the alias goes elsewhere', () => {
@@ -206,7 +244,11 @@ describe('identity', () => {
         resolveHost
       )
       assert.deepStrictEqual(
-        plan.changes.map(c => [c.key, c.next, isSelectedByDefault(c)]),
+        plan.changes.map(c => [
+          c.key,
+          c.next,
+          isSelectedByDefault(c, plan, false),
+        ]),
         [
           ['user.signingkey', null, true],
           ['commit.gpgsign', null, true],

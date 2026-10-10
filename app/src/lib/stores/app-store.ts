@@ -334,7 +334,7 @@ import {
   defaultUncommittedChangesStrategy,
 } from '../../models/uncommitted-changes-strategy'
 import { IStashEntry, StashedChangesLoadStates } from '../../models/stash-entry'
-import { arrayEquals } from '../equality'
+import { arrayEquals, structuralEquals } from '../equality'
 import { MenuLabelsEvent } from '../../models/menu-labels'
 import { findRemoteBranchName } from './helpers/find-branch-name'
 import { updateRemoteUrl } from './updates/update-remote-url'
@@ -8460,28 +8460,40 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   /**
-   * Replace the identities, then review the repositories whose config no
-   * longer matches the identities that changed.
+   * Replace the identities, then review the repositories that now use a
+   * different identity, or one whose content changed, and don't match it.
+   * Rules picked the identities rather than the user, so only values that
+   * aren't set yet or that the identity wrote earlier are selected.
    */
   public async _saveIdentities(
-    identities: ReadonlyArray<IIdentity>,
-    changedIdentityIDs: ReadonlyArray<string>
+    identities: ReadonlyArray<IIdentity>
   ): Promise<void> {
+    const previousIdentities = new Map(
+      this.identityTracker.getIdentities().map(i => [i.id, i])
+    )
+    const previousStates = this.identityTracker.getStates()
+
     await this.repositoriesStore.saveIdentities(identities)
     await this.identityTracker.setIdentities(identities, this.repositories)
 
-    const changed = new Set(changedIdentityIDs)
     const states = this.identityTracker.getStates()
     const affected = this.repositories.filter(repository => {
       const state = states.get(repository.id)
+      if (state?.plan == null || !hasIdentityMismatch(state)) {
+        return false
+      }
+
+      const { identity } = state.plan
+      const previous = previousStates.get(repository.id)?.plan?.identity
+      const before = previousIdentities.get(identity.id)
       return (
-        state?.plan != null &&
-        changed.has(state.plan.identity.id) &&
-        hasIdentityMismatch(state)
+        previous?.id !== identity.id ||
+        before === undefined ||
+        !structuralEquals(before, identity)
       )
     })
 
-    await this._reviewRepositoryIdentities(affected, true)
+    await this._reviewRepositoryIdentities(affected, false)
   }
 
   /**
