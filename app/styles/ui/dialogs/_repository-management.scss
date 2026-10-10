@@ -77,18 +77,38 @@
 
     .repository-picker-group {
       display: flex;
-      width: 100%;
       align-items: center;
-      gap: var(--spacing-half);
-      padding: var(--spacing-half);
-      border: none;
       border-radius: var(--border-radius);
-      background: none;
       color: var(--text-color);
-      font: inherit;
-      text-align: left;
 
-      &.nested {
+      button {
+        border: none;
+        background: none;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        padding: var(--spacing-half);
+      }
+
+      .select {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-half);
+      }
+
+      .toggle {
+        flex-shrink: 0;
+        display: flex;
+        border-radius: var(--border-radius);
+
+        &:hover {
+          background: var(--box-hover-background-color);
+        }
+      }
+
+      &.nested .select {
         padding-left: calc(var(--spacing) * 2);
       }
 
@@ -103,6 +123,10 @@
         .count {
           color: inherit;
         }
+
+        .toggle:hover {
+          background: none;
+        }
       }
 
       .label {
@@ -115,10 +139,6 @@
         flex-shrink: 0;
         font-size: var(--font-size-sm);
         color: var(--text-secondary-color);
-      }
-
-      .chevron {
-        flex-shrink: 0;
       }
     }
 

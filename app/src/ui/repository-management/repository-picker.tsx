@@ -178,10 +178,43 @@ interface IRepositoryPickerProps {
  * Repositories that aren't listed keep their checkbox state, but callers are
  * expected to act on the listed ones only, see `getListedItems`.
  */
-export class RepositoryPicker extends React.Component<IRepositoryPickerProps> {
+interface IRepositoryPickerState {
+  /**
+   * Groups whose nested groups the user has expanded. They stay expanded until
+   * collapsed, whatever happens to the selection or the list.
+   */
+  readonly expandedKeys: ReadonlySet<string>
+}
+
+export class RepositoryPicker extends React.Component<
+  IRepositoryPickerProps,
+  IRepositoryPickerState
+> {
   /** The key of the last checkbox toggled, where Shift-click ranges start. */
   private anchorKey: string | null = null
   private shiftKey = false
+
+  public constructor(props: IRepositoryPickerProps) {
+    super(props)
+    this.state = { expandedKeys: new Set() }
+  }
+
+  /**
+   * When the selected group goes away, e.g. after removing the last repository
+   * of an owner, select its parent instead, or the first group without one.
+   */
+  public componentDidUpdate(prevProps: IRepositoryPickerProps) {
+    const { groups, selectedGroupKey } = this.props
+    if (groups === prevProps.groups || groups.length === 0) {
+      return
+    }
+
+    if (!groups.some(g => g.key === selectedGroupKey)) {
+      const previous = prevProps.groups.find(g => g.key === selectedGroupKey)
+      const parent = groups.find(g => g.key === previous?.parent)
+      this.props.onSelectedGroupChanged((parent ?? groups[0]).key)
+    }
+  }
 
   private get listedItems() {
     const { items, groups, selectedGroupKey, filterText } = this.props
@@ -255,19 +288,49 @@ export class RepositoryPicker extends React.Component<IRepositoryPickerProps> {
     }
   }
 
-  private getOnGroupClick = (groupKey: string) => () =>
+  private getOnGroupClick = (groupKey: string) => () => {
+    // Selecting a group shows what is nested in it, without collapsing others.
+    if (!this.state.expandedKeys.has(groupKey)) {
+      this.setExpanded(groupKey, true)
+    }
     this.props.onSelectedGroupChanged(groupKey)
+  }
+
+  private getOnToggleExpanded = (groupKey: string, expanded: boolean) => () => {
+    this.setExpanded(groupKey, !expanded)
+
+    // Keep the selection visible when collapsing the group it is nested in.
+    const selected = this.props.groups.find(
+      g => g.key === this.selectedGroupKey
+    )
+    if (expanded && selected?.parent === groupKey) {
+      this.props.onSelectedGroupChanged(groupKey)
+    }
+  }
+
+  private setExpanded(groupKey: string, expanded: boolean) {
+    this.setState(({ expandedKeys }) => {
+      const keys = new Set(expandedKeys)
+      if (expanded) {
+        keys.add(groupKey)
+      } else {
+        keys.delete(groupKey)
+      }
+      return { expandedKeys: keys }
+    })
+  }
 
   private renderGroups() {
     const { groups } = this.props
     const selected = groups.find(g => g.key === this.selectedGroupKey)
-    const expanded = selected?.parent ?? selected?.key
     const parents = new Set(groups.map(g => g.parent))
+    const isExpanded = (key: string) =>
+      this.state.expandedKeys.has(key) || selected?.parent === key
 
     return groups
-      .filter(g => g.parent === undefined || g.parent === expanded)
+      .filter(g => g.parent === undefined || isExpanded(g.parent))
       .map(g =>
-        this.renderGroup(g, parents.has(g.key) ? g.key === expanded : undefined)
+        this.renderGroup(g, parents.has(g.key) ? isExpanded(g.key) : undefined)
       )
   }
 
@@ -282,25 +345,35 @@ export class RepositoryPicker extends React.Component<IRepositoryPickerProps> {
         {group.heading !== undefined && (
           <h3 className="repository-picker-heading">{group.heading}</h3>
         )}
-        <button
-          type="button"
+        <div
           className={classNames('repository-picker-group', {
             selected,
             nested: group.parent !== undefined,
           })}
-          aria-pressed={selected}
-          aria-expanded={expanded}
-          onClick={this.getOnGroupClick(group.key)}
         >
-          <span className="label">{group.label}</span>
-          <span className="count">{group.keys.length}</span>
+          <button
+            type="button"
+            className="select"
+            aria-pressed={selected}
+            onClick={this.getOnGroupClick(group.key)}
+          >
+            <span className="label">{group.label}</span>
+            <span className="count">{group.keys.length}</span>
+          </button>
           {expanded !== undefined && (
-            <Octicon
-              className="chevron"
-              symbol={expanded ? octicons.chevronDown : octicons.chevronRight}
-            />
+            <button
+              type="button"
+              className="toggle"
+              aria-label={`${expanded ? 'Collapse' : 'Expand'} ${group.label}`}
+              aria-expanded={expanded}
+              onClick={this.getOnToggleExpanded(group.key, expanded)}
+            >
+              <Octicon
+                symbol={expanded ? octicons.chevronDown : octicons.chevronRight}
+              />
+            </button>
           )}
-        </button>
+        </div>
       </React.Fragment>
     )
   }
