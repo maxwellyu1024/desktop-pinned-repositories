@@ -40,7 +40,7 @@
 
 ### 仓库管理（方案：[仓库批量管理](plans/2026-10-10-repository-management.md)）
 
-- [ ] 用户替换 `/Applications/GHDock.app` 为 `dist/GHDock-darwin-arm64/GHDock.app`（471ce28eca 打包，未签名）后回归测试：导入 / 导出配置、管理仓库、从文件夹添加、从其他应用添加、开始页、用编辑器打开。
+- [ ] 替换正式版后回归测试：导入 / 导出配置、管理仓库、从文件夹添加、从其他应用添加、开始页、用编辑器打开。
 - [ ] 已登录状态下开始页布局（含教程按钮）目测验证。
 - [ ] 管理仓库展开状态修复的目测验证（开发版被正式版打包覆盖，本次用组件测试验证）。
 - [ ] “从文件夹添加”分栏弹窗目测验证（需系统选择文件夹对话框，开发版自动化未覆盖）。
@@ -59,7 +59,7 @@
   列表不一致标记与右键菜单、管理仓库身份分组与批量操作、导出 / 导入 v2 配置。
 - [ ] 用仓库身份修正本仓库：为 `maxwellyu1024` 建身份（SSH 别名 `maxwellyu1024`），本仓库提交作者目前为全局 `powerpook`，
   推送走 `maxwellyu1024` 别名，需要用户确认作者信息后在应用中套用。
-- [ ] 正式版重新打包后，用户替换 `/Applications/GHDock.app`（当前包 `dist/GHDock-darwin-arm64/GHDock.app` 不含仓库身份）。
+- [ ] 用户替换 `/Applications/GHDock.app` 为 `dist/GHDock-darwin-arm64/GHDock.app`（5994e611c4 重新打包，含仓库身份，未签名）。
 - [ ] 第 6 步：GitLab 实现。
 - [ ] 第 7 步：Gitea / Forgejo 实现。
 - [ ] 第 8 步：Bitbucket Cloud 实现。
