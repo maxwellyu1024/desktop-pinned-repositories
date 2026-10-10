@@ -34,6 +34,7 @@ describe('repository identity', () => {
     assert.deepStrictEqual(state.remote, {
       host: 'example.com',
       fullPath: 'acme/app',
+      sshHost: null,
     })
     assert.equal(state.plan?.identity.id, 'work-id')
 

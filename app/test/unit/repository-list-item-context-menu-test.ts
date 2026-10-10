@@ -224,7 +224,7 @@ describe('generateRepositoryListContextMenu', () => {
       ? 'Apply Identity Work…'
       : 'Apply identity Work…'
     const identityState = {
-      remote: { host: 'github.com', fullPath: 'acme/app' },
+      remote: { host: 'github.com', fullPath: 'acme/app', sshHost: null },
       plan: {
         identity: {
           id: 'work',
@@ -246,7 +246,6 @@ describe('generateRepositoryListContextMenu', () => {
       },
       localEmail: 'me@home.com',
       localName: null,
-      sshHost: null,
     }
 
     it('are only offered when there are identities', () => {

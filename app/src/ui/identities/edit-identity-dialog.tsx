@@ -267,8 +267,9 @@ export class EditIdentityDialog extends React.Component<
           </Row>
           <Row>{this.renderSSHHostAlias()}</Row>
           <p className="identities-description">
-            SSH remotes on the same host are switched to this SSH host so they
-            use its key. ~/.ssh/config itself is never changed.
+            Repositories whose remote uses this SSH host use this identity. SSH
+            remotes on the same host are switched to it so they use its key.
+            ~/.ssh/config itself is never changed.
           </p>
           <Row>
             <TextArea
@@ -284,7 +285,8 @@ export class EditIdentityDialog extends React.Component<
           <p className="identities-description">
             One per line, a host or a host followed by a user, organization or
             group. Remotes are matched by the longest one.{' '}
-            {identity.rules.length > 0 &&
+            {(identity.rules.length > 0 ||
+              identity.sshHostAlias !== undefined) &&
               `Matches ${this.getMatchCount(identity)} of your repositories.`}
           </p>
         </DialogContent>

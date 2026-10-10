@@ -25,9 +25,6 @@ export interface IRepositoryIdentityState {
 
   /** The local `user.name`, used to suggest identities. */
   readonly localName: string | null
-
-  /** The SSH host the default remote is written with, alias or real host. */
-  readonly sshHost: string | null
 }
 
 /** Read the repository's local Git configuration. */
@@ -78,6 +75,7 @@ export async function loadRepositoryIdentityState(
               ? sshHostAliasResolver.getHostname(sshHost)
               : location.host,
           fullPath: location.fullPath,
+          sshHost,
         }
 
   const identity = resolveIdentity(binding, identities, remote)
@@ -95,7 +93,6 @@ export async function loadRepositoryIdentityState(
           ),
     localEmail: config.get('user.email') ?? null,
     localName: config.get('user.name') ?? null,
-    sshHost,
   }
 }
 

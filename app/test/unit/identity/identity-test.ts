@@ -95,7 +95,7 @@ describe('identity', () => {
 
     it('prefers the longest namespace on the same host', () => {
       const match = (host: string, fullPath: string) =>
-        matchIdentity(all, { host, fullPath })?.id ?? null
+        matchIdentity(all, { host, fullPath, sshHost: null })?.id ?? null
 
       assert.equal(match('github.com', 'acme/app'), 'work')
       assert.equal(match('GitHub.com', 'octocat/app'), 'personal')
@@ -103,8 +103,24 @@ describe('identity', () => {
       assert.equal(match('gitlab.com', 'other/api'), null)
     })
 
+    it('matches remotes written with an identity alias before rules', () => {
+      const aliased = identity('aliased', [], { sshHostAlias: 'Work-SSH' })
+      const later = identity('later', [], { sshHostAlias: 'work-ssh' })
+      const match = (sshHost: string | null) =>
+        matchIdentity([personal, work, aliased, later], {
+          host: 'github.com',
+          fullPath: 'acme/app',
+          sshHost,
+        })?.id ?? null
+
+      assert.equal(match('work-ssh'), 'aliased')
+      assert.equal(match('github.com'), 'work')
+      assert.equal(match(null), 'work')
+      assert.equal(match('other-alias'), 'work')
+    })
+
     it('uses the chosen identity whatever the remote', () => {
-      const remote = { host: 'github.com', fullPath: 'acme/app' }
+      const remote = { host: 'github.com', fullPath: 'acme/app', sshHost: null }
       assert.equal(
         resolveIdentity({ kind: 'identity', id: 'team' }, all, remote)?.id,
         'team'
@@ -282,11 +298,10 @@ describe('identity', () => {
       sshHost: string | null = null,
       host = 'github.com'
     ): IRepositoryIdentityState => ({
-      remote: { host, fullPath },
+      remote: { host, fullPath, sshHost },
       plan: null,
       localEmail: email,
       localName: email === null ? null : 'Local Name',
-      sshHost,
     })
 
     const summarize = (suggestions: ReturnType<typeof inferIdentities>) =>

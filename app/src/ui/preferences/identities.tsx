@@ -93,7 +93,12 @@ class IdentityRow extends React.Component<IIdentityRowProps> {
 
   public render() {
     const { identity, repositoryCount, mismatchCount } = this.props
-    const rules = formatRules(identity.rules).split('\n').join(', ')
+    const matches = [
+      ...(identity.sshHostAlias !== undefined
+        ? [`remotes using ${identity.sshHostAlias}`]
+        : []),
+      ...identity.rules.map(rule => formatRules([rule])),
+    ].join(', ')
 
     return (
       <li className="identity-row">
@@ -106,7 +111,9 @@ class IdentityRow extends React.Component<IIdentityRowProps> {
               ` · SSH host ${identity.sshHostAlias}`}
           </div>
           <div className="identity-detail">
-            {rules.length > 0 ? rules : 'Only repositories it is chosen for'}
+            {matches.length > 0
+              ? `Used for ${matches}`
+              : 'Only repositories it is chosen for'}
           </div>
           <div className="identity-detail">
             Used by {repositoryCount}{' '}

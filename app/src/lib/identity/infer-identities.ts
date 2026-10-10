@@ -1,5 +1,6 @@
 import { IIdentity, IIdentityRule } from '../../models/identity'
 import { IRepositoryIdentityState } from './repository-identity'
+import { getRemoteAlias } from './match-identity'
 
 /** An identity suggested from how existing repositories are set up. */
 export interface IIdentitySuggestion {
@@ -73,11 +74,7 @@ export function inferIdentities(
       continue
     }
 
-    const alias =
-      state.sshHost !== null &&
-      state.sshHost.toLowerCase() !== host.toLowerCase()
-        ? state.sshHost
-        : undefined
+    const alias = getRemoteAlias(state.remote) ?? undefined
     const email = state.localEmail
 
     if (
