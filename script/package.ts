@@ -86,7 +86,7 @@ function getWindowsIconUrl() {
   }
 
   const repository =
-    process.env.GITHUB_REPOSITORY ?? 'maxwellyu1024/desktop-pinned-repositories'
+    process.env.GITHUB_REPOSITORY ?? 'maxwellyu1024/ghdock'
   const ref = process.env.GITHUB_SHA ?? 'development'
   return `https://raw.githubusercontent.com/${repository}/${ref}/app/static/logos/prod/icon-logo.ico`
 }

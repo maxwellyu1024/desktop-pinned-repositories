@@ -3,6 +3,7 @@ import { getUpdatesURL, getChannel } from '../script/dist-info'
 import { version, productName } from './package.json'
 import {
   getCLIName,
+  getRepositoryURL,
   getWindowsIdentifierName,
   isOfficialApp,
 } from './package-info'
@@ -31,6 +32,7 @@ export function getReplacements() {
     __APP_NAME__: s(productName),
     __OFFICIAL_APP__: isOfficialApp(),
     __CLI_NAME__: s(getCLIName()),
+    __REPOSITORY_URL__: s(getRepositoryURL()),
     __WINDOWS_IDENTIFIER__: s(getWindowsIdentifierName()),
     __APP_VERSION__: s(version),
     __DEV__: isDevBuild,

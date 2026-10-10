@@ -1,4 +1,10 @@
-import { bundleID, companyName, productName, version } from './package.json'
+import {
+  bundleID,
+  companyName,
+  productName,
+  repository,
+  version,
+} from './package.json'
 
 export function getProductName() {
   return process.env.NODE_ENV === 'development'
@@ -8,6 +14,11 @@ export function getProductName() {
 
 export function getCompanyName() {
   return companyName
+}
+
+/** 源码仓库的网页地址，用于报告问题等链接。 */
+export function getRepositoryURL() {
+  return repository.url.replace(/\.git$/, '')
 }
 
 export function getVersion() {

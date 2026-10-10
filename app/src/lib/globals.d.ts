@@ -36,6 +36,9 @@ declare const __OFFICIAL_APP__: boolean
 /** The name of the command line tool installed into /usr/local/bin. */
 declare const __CLI_NAME__: string
 
+/** The web URL of the source repository, used for issue links. */
+declare const __REPOSITORY_URL__: string
+
 /**
  * The Windows identity of the app: executable name, Squirrel package name and
  * install directory.
