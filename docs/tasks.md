@@ -59,6 +59,8 @@
   列表不一致标记与右键菜单、管理仓库身份分组与批量操作、导出 / 导入 v2 配置。
 - [ ] 用仓库身份修正本仓库：为 `maxwellyu1024` 建身份（SSH 别名 `maxwellyu1024`），本仓库提交作者目前为全局 `powerpook`，
   推送走 `maxwellyu1024` 别名，需要用户确认作者信息后在应用中套用。
+- [x] 修正“从现有仓库推荐”：按 SSH 别名或本地邮箱聚合，不再把只靠全局配置的克隆聚成一个身份、不再按作者拆出重名身份；
+  已用本机 193 个仓库验证（建议 powerpook 36、forgejo 15、maxwellyu1024 7、IBAX 1）。
 - [ ] 用户替换 `/Applications/GHDock.app` 为 `dist/GHDock-darwin-arm64/GHDock.app`（5994e611c4 重新打包，含仓库身份，未签名）。
 - [ ] 第 6 步：GitLab 实现。
 - [ ] 第 7 步：Gitea / Forgejo 实现。

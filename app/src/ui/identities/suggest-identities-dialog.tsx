@@ -86,7 +86,11 @@ export class SuggestIdentitiesDialog extends React.Component<
   }
 
   public async componentDidMount() {
-    const { dispatcher, repositories, identities } = this.props
+    const { dispatcher, identities } = this.props
+    // 明确设为不用身份的仓库不参与推荐
+    const repositories = this.props.repositories.filter(
+      r => r.identity.kind !== 'none'
+    )
     const [states, name, email] = await Promise.all([
       dispatcher.loadRepositoryIdentityStates(repositories, identities),
       getGlobalConfigValue('user.name'),

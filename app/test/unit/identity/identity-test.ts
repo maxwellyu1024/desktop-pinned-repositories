@@ -247,55 +247,83 @@ describe('identity', () => {
       sshHost,
     })
 
-    it('groups by host, email and alias', () => {
+    const summarize = (suggestions: ReturnType<typeof inferIdentities>) =>
+      suggestions.map(s => [
+        s.identity.label,
+        s.identity.authorName,
+        s.identity.authorEmail,
+        s.identity.sshHostAlias,
+        s.identity.rules.map(r => `${r.host}/${r.namespace}`),
+        s.repositoryCount,
+      ])
+
+    const global = { name: 'Global', email: 'global@example.com' }
+
+    it('groups aliased remotes by alias and takes the most common local author', () => {
       const suggestions = inferIdentities(
         [
           state('maxwell/a', 'max@example.com', 'maxwell'),
-          state('maxwell/b', 'max@example.com', 'maxwell'),
-          state('acme/c', 'max@example.com', 'maxwell'),
-          state('octocat/d', null),
-          state('team/e', 'me@work.com', null, 'gitlab.com'),
+          state('maxwell/b', 'MAX@example.com', 'maxwell'),
+          state('acme/c', null, 'maxwell'),
+          state('maxwell/d', 'other@example.com', 'maxwell'),
+          state('solo/e', null, 'solo'),
         ],
-        { name: 'Global', email: 'global@example.com' },
+        global,
         [identity('maxwell', [])]
       )
 
-      assert.deepStrictEqual(
-        suggestions.map(s => [
-          s.identity.label,
-          s.identity.authorName,
-          s.identity.authorEmail,
-          s.identity.sshHostAlias,
-          s.identity.rules.map(r => `${r.host}/${r.namespace}`),
-          s.repositoryCount,
-        ]),
+      assert.deepStrictEqual(summarize(suggestions), [
         [
-          [
-            'maxwell 2',
-            'Local Name',
-            'max@example.com',
-            'maxwell',
-            ['github.com/acme', 'github.com/maxwell'],
-            3,
-          ],
-          [
-            'octocat',
-            'Global',
-            'global@example.com',
-            undefined,
-            ['github.com/octocat'],
-            1,
-          ],
-          [
-            'team',
-            'Local Name',
-            'me@work.com',
-            undefined,
-            ['gitlab.com/team'],
-            1,
-          ],
-        ]
+          'maxwell 2',
+          'Local Name',
+          'max@example.com',
+          'maxwell',
+          ['github.com/acme', 'github.com/maxwell'],
+          4,
+        ],
+        [
+          'solo',
+          'Global',
+          'global@example.com',
+          'solo',
+          ['github.com/solo'],
+          1,
+        ],
+      ])
+    })
+
+    it('groups other remotes by local email, skipping the global author', () => {
+      const suggestions = inferIdentities(
+        [
+          state('octocat/a', null),
+          state('octocat/b', 'Global@example.com'),
+          state('team/c', 'me@work.com', null, 'gitlab.com'),
+          state('infra/d', 'me@work.com', null, 'gitlab.com'),
+          state('team/e', 'me@work.com'),
+          state('team/f', 'me@work.com', 'github.com'),
+        ],
+        global,
+        []
       )
+
+      assert.deepStrictEqual(summarize(suggestions), [
+        [
+          'me@work.com',
+          'Local Name',
+          'me@work.com',
+          undefined,
+          ['gitlab.com/infra', 'gitlab.com/team'],
+          2,
+        ],
+        [
+          'team',
+          'Local Name',
+          'me@work.com',
+          undefined,
+          ['github.com/team'],
+          2,
+        ],
+      ])
     })
   })
 
