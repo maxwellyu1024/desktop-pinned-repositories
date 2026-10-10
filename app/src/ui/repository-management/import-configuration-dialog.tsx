@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogFooter } from '../dialog'
 import { OkCancelButtonGroup } from '../dialog/ok-cancel-button-group'
 import { RadioGroup } from '../lib/radio-group'
 import { PathText } from '../lib/path-text'
-import { formatRepositoryCount } from './repository-checklist'
+import { formatRepositoryCount } from './repository-picker'
 
 interface IImportConfigurationDialogProps {
   readonly dispatcher: Dispatcher

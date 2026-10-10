@@ -227,11 +227,16 @@ export class Dispatcher {
     return this.appStore._removeRepository(repository, moveToTrash)
   }
 
-  /** Remove several repositories from the list, leaving them on disk. */
+  /**
+   * Remove several repositories from the list. Their folders stay on disk
+   * unless `moveToTrash` is enabled, in which case only the repositories that
+   * were moved to the Trash, or that are missing, are removed.
+   */
   public removeRepositories(
-    repositories: ReadonlyArray<Repository>
+    repositories: ReadonlyArray<Repository>,
+    moveToTrash: boolean
   ): Promise<void> {
-    return this.appStore._removeRepositories(repositories)
+    return this.appStore._removeRepositories(repositories, moveToTrash)
   }
 
   /** Choose a folder and offer to add the repositories found in it. */

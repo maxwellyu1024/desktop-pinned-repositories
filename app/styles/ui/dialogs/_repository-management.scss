@@ -11,13 +11,6 @@
     margin-bottom: var(--spacing);
   }
 
-  .repository-checklist-actions {
-    display: flex;
-    gap: var(--spacing);
-    margin-bottom: var(--spacing-half);
-  }
-
-  .repository-checklist ul,
   .import-section ul {
     max-height: 300px;
     overflow-y: auto;
@@ -26,26 +19,6 @@
     list-style: none;
     border: var(--base-border);
     border-radius: var(--border-radius);
-  }
-
-  .repository-checklist li {
-    margin: 0;
-    padding: var(--spacing-half) 0;
-  }
-
-  .repository-checklist-label {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-
-    .note {
-      color: var(--text-secondary-color);
-    }
-
-    .path-text-component {
-      color: var(--text-secondary-color);
-      font-size: var(--font-size-sm);
-    }
   }
 
   .import-summary {
@@ -60,6 +33,225 @@
 
       ul {
         margin-top: var(--spacing-half);
+      }
+    }
+  }
+}
+
+// Dialogs listing repositories in groups grow with the window, so long lists
+// use the space available instead of scrolling in a small box.
+.repository-picker-dialog {
+  width: min(90vw, 960px);
+  max-width: none;
+  height: 85vh;
+
+  .dialog-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .repository-picker {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    border: var(--base-border);
+    border-radius: var(--border-radius);
+  }
+
+  .repository-picker-groups {
+    width: 220px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    padding: var(--spacing-half);
+    border-right: var(--base-border);
+
+    .repository-picker-heading {
+      margin: var(--spacing) var(--spacing-half) var(--spacing-half);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      text-transform: uppercase;
+      color: var(--text-secondary-color);
+    }
+
+    .repository-picker-group {
+      display: flex;
+      width: 100%;
+      align-items: center;
+      gap: var(--spacing-half);
+      padding: var(--spacing-half);
+      border: none;
+      border-radius: var(--border-radius);
+      background: none;
+      color: var(--text-color);
+      font: inherit;
+      text-align: left;
+
+      &.nested {
+        padding-left: calc(var(--spacing) * 2);
+      }
+
+      &:hover {
+        background: var(--box-hover-background-color);
+      }
+
+      &.selected {
+        background: var(--box-selected-active-background-color);
+        color: var(--box-selected-active-text-color);
+
+        .count {
+          color: inherit;
+        }
+      }
+
+      .label {
+        flex: 1;
+        min-width: 0;
+        @include ellipsis;
+      }
+
+      .count {
+        flex-shrink: 0;
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary-color);
+      }
+
+      .chevron {
+        flex-shrink: 0;
+      }
+    }
+
+    .repository-picker-loading {
+      padding: var(--spacing-half);
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary-color);
+    }
+  }
+
+  .repository-picker-list {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: var(--spacing);
+
+    .text-box-component {
+      flex: none;
+      margin-bottom: var(--spacing);
+    }
+
+    ul {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    li {
+      margin: 0;
+      padding: var(--spacing-half) 0;
+    }
+  }
+
+  .repository-picker-actions {
+    display: flex;
+    gap: var(--spacing);
+    margin-bottom: var(--spacing-half);
+
+    .selected-count {
+      margin-left: auto;
+      color: var(--text-secondary-color);
+    }
+  }
+
+  .repository-picker-empty {
+    color: var(--text-secondary-color);
+  }
+
+  .repository-picker-item {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+
+    .first-line,
+    .second-line {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-half);
+      min-width: 0;
+    }
+
+    .title {
+      font-weight: var(--font-weight-semibold);
+    }
+
+    .detail,
+    .note,
+    .second-line {
+      color: var(--text-secondary-color);
+    }
+
+    .second-line {
+      font-size: var(--font-size-sm);
+    }
+
+    .remote {
+      flex-shrink: 0;
+    }
+
+    .path {
+      min-width: 0;
+      @include ellipsis;
+    }
+
+    .pinned {
+      flex-shrink: 0;
+      color: var(--text-secondary-color);
+    }
+
+    .tag {
+      flex-shrink: 0;
+      padding: 0 var(--spacing-half);
+      border: 1px solid currentColor;
+      border-radius: var(--border-radius);
+      font-size: var(--font-size-xs);
+    }
+
+    .missing {
+      color: var(--error-color);
+    }
+  }
+
+  .repository-picker-footer {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-double);
+
+    .removal-options {
+      flex: 1;
+      min-width: 0;
+
+      .trash {
+        color: var(--error-color);
+      }
+    }
+
+    // The safe Close button stays the default, Enter never removes anything.
+    // The remove button is the non-default one of a destructive group.
+    .button-group.destructive button[type='button']:not(:disabled) {
+      color: var(--error-color);
+    }
+
+    .removal-note {
+      margin: var(--spacing-half) 0 0;
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary-color);
+
+      &.trash {
+        color: var(--error-color);
       }
     }
   }

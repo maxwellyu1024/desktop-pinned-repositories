@@ -8439,14 +8439,45 @@ export class AppStore extends TypedBaseStore<IAppState> {
     }
   }
 
-  /** Remove several repositories from the list, leaving them on disk. */
+  /**
+   * Remove several repositories from the list, optionally moving their folders
+   * to the Trash first. Repositories whose folders can't be moved stay in the
+   * list, missing repositories have nothing to move and are just removed.
+   */
   public async _removeRepositories(
-    repositories: ReadonlyArray<Repository>
+    repositories: ReadonlyArray<Repository>,
+    moveToTrash: boolean
   ): Promise<void> {
+    const removable = new Array<Repository>()
+    const failed = new Array<string>()
+
+    for (const repository of repositories) {
+      if (moveToTrash && !repository.missing) {
+        try {
+          await shell.moveItemToTrash(repository.path)
+        } catch (error) {
+          log.error(`Failed moving ${repository.path} to trash`, error)
+          failed.push(repository.path)
+          continue
+        }
+      }
+      removable.push(repository)
+    }
+
     try {
-      await this.repositoriesStore.removeRepositories(repositories)
+      await this.repositoriesStore.removeRepositories(removable)
     } catch (err) {
       this.emitError(err)
+    }
+
+    if (failed.length > 0) {
+      this.emitError(
+        new Error(
+          `Failed to move these repositories to ${TrashNameLabel}, they are still in the list:\n\n${failed.join(
+            '\n'
+          )}\n\nA common reason for this is that the directory or one of its files is open in another program.`
+        )
+      )
     }
   }
 
