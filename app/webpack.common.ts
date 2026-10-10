@@ -3,6 +3,7 @@ import HtmlWebpackPlugin from 'html-webpack-plugin'
 import webpack from 'webpack'
 import merge from 'webpack-merge'
 import { getReplacements } from './app-info'
+import { productName } from './package.json'
 import { getDistArchitecture } from '../script/dist-info'
 import { getKoffiWebpackConfig } from '../script/webpack-koffi'
 
@@ -92,6 +93,7 @@ export const renderer = merge(
     plugins: [
       new HtmlWebpackPlugin({
         template: path.join(__dirname, 'static', 'index.html'),
+        title: productName,
         chunks: ['renderer'],
       }),
       new webpack.NormalModuleReplacementPlugin(
@@ -124,7 +126,7 @@ export const crash = merge({}, commonConfig, {
   target: 'electron-renderer',
   plugins: [
     new HtmlWebpackPlugin({
-      title: 'GitHub Desktop',
+      title: productName,
       filename: 'crash.html',
       chunks: ['crash'],
     }),

@@ -1,6 +1,5 @@
 import * as Path from 'path'
 import { existsSync } from 'fs'
-import { legacyProductNames } from '../legacy-user-data'
 import { resolveRepositoryRoots } from './find-repository-root'
 import { readVSCodeFolders, VSCodeFamilyEditors } from './vscode'
 import { readJetBrainsProjects } from './jetbrains'
@@ -31,8 +30,8 @@ export interface IRepositorySourceEnvironment {
   ) => Promise<ReadonlyArray<string>>
 }
 
-/** The names of GitHub Desktop installations this app can import from. */
-const DesktopProductNames = ['GitHub Desktop', ...legacyProductNames]
+/** The GitHub Desktop installations this app can import from. */
+const DesktopProductNames = ['GitHub Desktop']
 
 /** Find the paths each installed app knows about, before resolving them. */
 async function findCandidates(

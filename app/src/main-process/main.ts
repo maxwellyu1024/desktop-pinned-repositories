@@ -54,10 +54,8 @@ import {
 import { initializeDesktopNotifications } from './notifications'
 import parseCommandLineArgs from 'minimist'
 import { CLIAction } from '../lib/cli-action'
-import { migrateLegacyUserData } from './migrate-legacy-user-data'
 import { readDesktopRepositories } from './read-desktop-repositories'
 
-migrateLegacyUserData()
 app.setAppLogsPath()
 enableSourceMaps()
 

@@ -4,7 +4,7 @@
 
 - 仓库列表、别名、置顶顺序与应用设置（含主题配色）可导出为 JSON，手动编辑后重新导入。
 - 从指定文件夹批量添加仓库。
-- 从其他应用导入仓库：GitHub Desktop（含本应用改名前的旧版）与常用编辑器，只导入 Git 仓库。
+- 从其他应用导入仓库：GitHub Desktop 与常用编辑器，只导入 Git 仓库。本应用改名前的旧版不作为来源，也不迁移其数据。
 - 与编辑器双向打通：既能从编辑器导入项目，也能用编辑器打开仓库。
 - 批量移除仓库；清空 = 全选后移除，不单设清空入口。
 - 移除默认只从列表移除；可选同时把文件夹移到废纸篓（可恢复），任何操作都不直接从磁盘删除文件。
@@ -77,7 +77,7 @@ File 菜单（macOS 与 Windows / Linux 一致）：
 
 | 来源 | 数据位置（macOS，`appData` = `~/Library/Application Support`） | 读取方式 |
 | --- | --- | --- |
-| GitHub Desktop、本应用旧名 | `appData/<名称>/IndexedDB` | 主进程复制 IndexedDB 到临时目录，用 `session.fromPath` 隐藏窗口读取 `Database.repositories`，结束后删除副本；跳过本应用自身目录 |
+| GitHub Desktop | `appData/GitHub Desktop/IndexedDB` | 主进程复制 IndexedDB 到临时目录，用 `session.fromPath` 隐藏窗口读取 `Database.repositories`，结束后删除副本；跳过本应用自身目录 |
 | VS Code、Insiders、VSCodium、Cursor、Windsurf | `appData/<名称>/User/workspaceStorage/*/workspace.json` | 取 `folder` 的 `file:` URL |
 | JetBrains IDE（含 Android Studio） | `appData/JetBrains/<产品><版本>/options/recentProjects.xml` | 读取条目路径，展开 `$USER_HOME$`，同一产品多版本合并、新版本优先 |
 | Zed（Stable、Preview） | `appData/Zed/db/0-<channel>/db.sqlite` | `node:sqlite` 只读查询本地 `workspaces.paths` |

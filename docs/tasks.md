@@ -35,7 +35,6 @@
 ## 待用户确认
 
 - [?] 重新打包正式版供试用（需用户同意后再打包，避免覆盖 `/Applications/GHDock.app` 正在使用的版本）。
-- [?] GHDock 当前仓库列表为空：是有意清空还是迁移失败？旧数据目录 `GitHub Desktop Pinned` 完整保留，未动过。
 - [?] 确认 [多代码平台、多账号与仓库身份](plans/2026-10-10-multi-platform-accounts.md) 方案后再开始实施。
 - [?] 在 GitHub 上为 `maxwellyu1024/ghdock` 开启 Issues（需用户在仓库设置中操作）。
 
@@ -47,7 +46,6 @@
 - [ ] 已登录状态下开始页布局（含教程按钮）目测验证。
 - [ ] 管理仓库展开状态修复的目测验证（开发版被正式版打包覆盖，本次用组件测试验证）。
 - [ ] “从文件夹添加”分栏弹窗目测验证（需系统选择文件夹对话框，开发版自动化未覆盖）。
-- [ ] “GitHub Desktop Pinned” 来源标注为 GHDock 旧版本，避免用户误以为是另一个应用。
 - [ ] 管理仓库中批量置顶、批量设置别名（随仓库身份一起做批量套用，见下）。
 
 ### 多平台账号与仓库身份（方案：[多代码平台、多账号与仓库身份](plans/2026-10-10-multi-platform-accounts.md#实施顺序)）
@@ -62,16 +60,14 @@
 - [ ] 第 7 步：Gitea / Forgejo 实现。
 - [ ] 第 8 步：Bitbucket Cloud 实现。
 
-### 改名遗留（方案：[改名 GHDock](plans/2026-10-10-rename-ghdock.md)）
-
-- [ ] `app/static/index.html` 的 `<title>` 仍为 “GitHub Desktop”，改为 GHDock（开发调试时窗口与 DevTools 标题可见）。
-
 ## 已知问题
 
 - 单元测试 “parses files from pull error” 在本机失败：本机全局 `pull.rebase` 配置导致，与代码无关，暂不处理。
 
 ## 已完成
 
+- [x] 移除对旧版 “GitHub Desktop Pinned” 的兼容：不迁移数据、不作为“从其他应用添加”的来源（旧数据目录应用不再读取，也不修改）。
+- [x] 主窗口与崩溃窗口标题改为产品名（取自 `app/package.json` 的 `productName`），不再显示 “GitHub Desktop”。
 - [x] 管理仓库对话框改版（方案：[仓库批量管理 · 分栏选择列表 / 批量管理](plans/2026-10-10-repository-management.md#分栏选择列表)）：
   左侧按状态与“主机 → 用户或组织”分组、对话框随窗口缩放、Shift 连选、已选数量、
   可选“同时移到废纸篓”（红色提示）；“从其他应用添加”“从文件夹添加”共用分栏组件（提交见 git log）。
