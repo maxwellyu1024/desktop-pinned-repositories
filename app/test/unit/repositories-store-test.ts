@@ -336,9 +336,29 @@ describe('RepositoriesStore', () => {
       )
     })
 
+    it('sets the alias of several repositories at once', async () => {
+      const [a, b, c] = await addRepositories('/a', '/b', '/c')
+      await repositoriesStore.updateRepositoriesAlias([
+        { repository: a, alias: 'Same' },
+        { repository: b, alias: 'Same' },
+      ])
+      await repositoriesStore.updateRepositoriesAlias([
+        { repository: b, alias: null },
+      ])
+
+      const aliases = new Map(
+        (await repositoriesStore.getAll()).map(r => [r.id, r.alias])
+      )
+      assert.equal(aliases.get(a.id), 'Same')
+      assert.equal(aliases.get(b.id), null)
+      assert.equal(aliases.get(c.id), null)
+    })
+
     it('sets aliases and pin order, leaving unlisted repositories alone', async () => {
       const [a, b, c] = await addRepositories('/a', '/b', '/c')
-      await repositoriesStore.updateRepositoryAlias(c, 'Sea')
+      await repositoriesStore.updateRepositoriesAlias([
+        { repository: c, alias: 'Sea' },
+      ])
       await repositoriesStore.updateRepositoryPinned(c, true)
 
       await repositoriesStore.updateRepositoriesLayout([

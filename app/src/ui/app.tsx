@@ -2441,7 +2441,7 @@ export class App extends React.Component<IAppProps, IAppState> {
         return (
           <ChangeRepositoryAlias
             dispatcher={this.props.dispatcher}
-            repository={popup.repository}
+            repositories={popup.repositories}
             onDismissed={onPopupDismissedFn}
           />
         )
@@ -3735,12 +3735,12 @@ export class App extends React.Component<IAppProps, IAppState> {
     const onChangeRepositoryAlias = (repository: Repository) => {
       this.props.dispatcher.showPopup({
         type: PopupType.ChangeRepositoryAlias,
-        repository,
+        repositories: [repository],
       })
     }
 
     const onRemoveRepositoryAlias = (repository: Repository) => {
-      this.props.dispatcher.changeRepositoryAlias(repository, null)
+      this.props.dispatcher.changeRepositoriesAlias([repository], null)
     }
 
     const onCreateWorktree = (repository: Repository) => {

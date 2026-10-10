@@ -19,6 +19,7 @@ import { Button } from '../lib/button'
 import { Octicon } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
 import { IIdentity } from '../../models/identity'
+import { PopupType } from '../../models/popup'
 import { IRepositoryIdentityState } from '../../lib/identity/repository-identity'
 import { hasIdentityMismatch } from '../../lib/identity/repository-identity-tracker'
 import { showContextualMenu } from '../../lib/menu-item'
@@ -261,6 +262,26 @@ export class ManageRepositoriesDialog extends React.Component<
   private onPin = () => this.setPinned(true)
   private onUnpin = () => this.setPinned(false)
 
+  private onShowAliasMenu = () => {
+    const repositories = this.getSelectedRepositories()
+    const { dispatcher } = this.props
+    showContextualMenu([
+      {
+        label: __DARWIN__ ? 'Set Alias…' : 'Set alias…',
+        action: () =>
+          dispatcher.showPopup({
+            type: PopupType.ChangeRepositoryAlias,
+            repositories,
+          }),
+      },
+      {
+        label: __DARWIN__ ? 'Remove Alias' : 'Remove alias',
+        enabled: repositories.some(r => r.alias !== null),
+        action: () => dispatcher.changeRepositoriesAlias(repositories, null),
+      },
+    ])
+  }
+
   private onShowIdentityMenu = () => {
     const repositories = this.getSelectedRepositories().filter(r => !r.missing)
     const { dispatcher } = this.props
@@ -293,6 +314,13 @@ export class ManageRepositoriesDialog extends React.Component<
           disabled={busy || !selected.some(r => r.isPinned)}
         >
           Unpin
+        </Button>
+        <Button
+          size="small"
+          onClick={this.onShowAliasMenu}
+          disabled={busy || selected.length === 0}
+        >
+          Alias <Octicon symbol={octicons.triangleDown} />
         </Button>
         {this.props.identities.length > 0 && (
           <Button

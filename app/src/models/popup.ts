@@ -354,7 +354,11 @@ export type PopupDetail =
       files: ReadonlyArray<string>
     }
   | { type: PopupType.MoveToApplicationsFolder }
-  | { type: PopupType.ChangeRepositoryAlias; repository: Repository }
+  | {
+      type: PopupType.ChangeRepositoryAlias
+      /** All are given the same alias. */
+      repositories: ReadonlyArray<Repository>
+    }
   | {
       type: PopupType.ThankYou
       userContributions: ReadonlyArray<ReleaseNote>

@@ -965,11 +965,11 @@ export class Dispatcher {
   }
 
   /** Changes the repository alias to a new name. */
-  public changeRepositoryAlias(
-    repository: Repository,
-    newAlias: string | null
+  public changeRepositoriesAlias(
+    repositories: ReadonlyArray<Repository>,
+    alias: string | null
   ): Promise<void> {
-    return this.appStore._changeRepositoryAlias(repository, newAlias)
+    return this.appStore._changeRepositoriesAlias(repositories, alias)
   }
 
   /** Pins or unpins the repository in the repository list. */

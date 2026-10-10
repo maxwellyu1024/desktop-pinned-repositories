@@ -5067,11 +5067,32 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */
-  public async _changeRepositoryAlias(
-    repository: Repository,
-    newAlias: string | null
+  public async _changeRepositoriesAlias(
+    repositories: ReadonlyArray<Repository>,
+    alias: string | null
   ): Promise<void> {
-    return this.repositoriesStore.updateRepositoryAlias(repository, newAlias)
+    const changed = repositories.filter(r => r.alias !== alias)
+    await this.repositoriesStore.updateRepositoriesAlias(
+      changed.map(repository => ({ repository, alias }))
+    )
+
+    // 批量修改可撤销，单个仓库的修改在列表上一目了然，不需要横幅
+    if (changed.length < 2) {
+      return
+    }
+
+    const count = `${changed.length} repositories`
+    this._setBanner({
+      type: BannerType.RepositoriesAliasChanged,
+      message:
+        alias === null
+          ? `Removed the alias of ${count}.`
+          : `${count} are now called ${alias}.`,
+      onUndo: () =>
+        this.repositoriesStore.updateRepositoriesAlias(
+          changed.map(repository => ({ repository, alias: repository.alias }))
+        ),
+    })
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */

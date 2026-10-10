@@ -26,6 +26,17 @@ export function renderBanner(
   onDismissed: () => void
 ): JSX.Element {
   switch (banner.type) {
+    case BannerType.RepositoriesAliasChanged:
+      return (
+        <SuccessBanner
+          key="repositories-alias-changed"
+          timeout={15000}
+          onDismissed={onDismissed}
+          onUndo={banner.onUndo}
+        >
+          {banner.message}
+        </SuccessBanner>
+      )
     case BannerType.IdentitySwitched:
       return (
         <SuccessBanner

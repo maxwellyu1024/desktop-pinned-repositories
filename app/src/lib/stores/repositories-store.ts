@@ -384,17 +384,20 @@ export class RepositoriesStore extends TypedBaseStore<
     )
   }
 
-  /**
-   * Update the alias for the specified repository.
-   *
-   * @param repository  The repository to update.
-   * @param alias       The new alias to use.
-   */
-  public async updateRepositoryAlias(
-    repository: Repository,
-    alias: string | null
+  /** Set the alias of each repository, null to remove it, in one go. */
+  public async updateRepositoriesAlias(
+    aliases: ReadonlyArray<{
+      readonly repository: Repository
+      readonly alias: string | null
+    }>
   ): Promise<void> {
-    await this.db.repositories.update(repository.id, { alias })
+    await this.db.transaction('rw', this.db.repositories, () =>
+      Promise.all(
+        aliases.map(({ repository, alias }) =>
+          this.db.repositories.update(repository.id, { alias })
+        )
+      )
+    )
 
     this.emitUpdatedRepositories()
   }

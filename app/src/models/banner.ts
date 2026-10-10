@@ -19,6 +19,7 @@ export enum BannerType {
   OSVersionNoLongerSupported = 'OSVersionNoLongerSupported',
   IdentitySwitched = 'IdentitySwitched',
   IdentitySwitchUndone = 'IdentitySwitchUndone',
+  RepositoriesAliasChanged = 'RepositoriesAliasChanged',
 }
 
 export type Banner =
@@ -31,6 +32,12 @@ export type Banner =
   | {
       readonly type: BannerType.IdentitySwitchUndone
       readonly message: string
+    }
+  | {
+      readonly type: BannerType.RepositoriesAliasChanged
+      readonly message: string
+      /** Puts back the aliases the repositories had. */
+      readonly onUndo: () => void
     }
   | {
       readonly type: BannerType.SuccessfulMerge

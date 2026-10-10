@@ -595,12 +595,12 @@ export class RepositoriesList extends React.Component<
   private onChangeRepositoryAlias = (repository: Repository) => {
     this.props.dispatcher.showPopup({
       type: PopupType.ChangeRepositoryAlias,
-      repository,
+      repositories: [repository],
     })
   }
 
   private onRemoveRepositoryAlias = (repository: Repository) => {
-    this.props.dispatcher.changeRepositoryAlias(repository, null)
+    this.props.dispatcher.changeRepositoriesAlias([repository], null)
   }
 
   private onSwitchRepositoryIdentity = (
