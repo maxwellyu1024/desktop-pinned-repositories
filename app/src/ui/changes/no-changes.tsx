@@ -2,6 +2,7 @@ import * as React from 'react'
 
 import { encodePathAsUrl } from '../../lib/path'
 import { Repository } from '../../models/repository'
+import { getRepositoryWebURL } from '../../lib/repository-web-url'
 import { LinkButton } from '../lib/link-button'
 import { MenuIDs } from '../../models/menu-ids'
 import { IMenu, MenuItem } from '../../models/app-menu'
@@ -278,9 +279,12 @@ export class NoChanges extends React.Component<
     this.props.dispatcher.incrementMetric('suggestedStepOpenWorkingDirectory')
 
   private renderViewOnGitHub() {
-    const isGitHub = this.props.repository.gitHubRepository !== null
+    const url = getRepositoryWebURL(
+      this.props.repository,
+      this.props.repositoryState.remote
+    )
 
-    if (!isGitHub) {
+    if (url === null) {
       return null
     }
 

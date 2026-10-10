@@ -12,6 +12,7 @@ import { AppMenu, MenuItem } from '../models/app-menu'
 import { hasConflictedFiles } from './status'
 import { findContributionTargetDefaultBranch } from './branch'
 import { enableCopilotAppHandoff, enableWorktreeSupport } from './feature-flag'
+import { getRepositoryWebURL } from './repository-web-url'
 
 export interface IMenuItemState {
   readonly enabled?: boolean
@@ -171,6 +172,7 @@ function getRepositoryMenuBuilder(state: IAppState): MenuStateBuilder {
   let hasPublishedBranch = false
   let networkActionInProgress = false
   let hasRemote = false
+  let hasRepositoryWebURL = false
   let tipStateIsUnknown = false
   let branchIsUnborn = false
   let rebaseInProgress = false
@@ -224,6 +226,11 @@ function getRepositoryMenuBuilder(state: IAppState): MenuStateBuilder {
 
     networkActionInProgress = selectedState.state.isPushPullFetchInProgress
     hasRemote = selectedState.state.remote !== null
+    hasRepositoryWebURL =
+      getRepositoryWebURL(
+        selectedState.repository,
+        selectedState.state.remote
+      ) !== null
 
     const { conflictState, workingDirectory } = selectedState.state.changesState
 
@@ -302,7 +309,10 @@ function getRepositoryMenuBuilder(state: IAppState): MenuStateBuilder {
       isHostedOnGitHub && hasPublishedBranch
     )
 
-    menuStateBuilder.setEnabled('view-repository-on-github', isHostedOnGitHub)
+    menuStateBuilder.setEnabled(
+      'view-repository-on-github',
+      hasRepositoryWebURL
+    )
     menuStateBuilder.setEnabled(
       'create-issue-in-repository-on-github',
       repoIssuesEnabled

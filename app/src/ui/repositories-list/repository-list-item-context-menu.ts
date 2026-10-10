@@ -22,7 +22,9 @@ interface IRepositoryListItemContextMenuConfig {
   /** All shells installed on the user's machine */
   availableShells: ReadonlyArray<Shell>
   askForConfirmationOnRemoveRepository: boolean
-  onViewOnGitHub: (repository: Repositoryish) => void
+  /** The GitHub page of the repository; null if it isn't hosted on GitHub */
+  gitHubURL: string | null
+  onViewOnGitHub: (url: string) => void
   onOpenInShell: (repository: Repositoryish) => void
   onShowRepository: (repository: Repositoryish) => void
   onOpenInExternalEditor: (repository: Repositoryish) => void
@@ -46,10 +48,8 @@ interface IRepositoryListItemContextMenuConfig {
 export const generateRepositoryListContextMenu = (
   config: IRepositoryListItemContextMenuConfig
 ) => {
-  const { repository } = config
+  const { repository, gitHubURL } = config
   const missing = repository instanceof Repository && repository.missing
-  const github =
-    repository instanceof Repository && repository.gitHubRepository != null
   const openInExternalEditor = config.externalEditorLabel
     ? `Open in ${config.externalEditorLabel}`
     : DefaultEditorLabel
@@ -72,8 +72,12 @@ export const generateRepositoryListContextMenu = (
     { type: 'separator' },
     {
       label: 'View on GitHub',
-      action: () => config.onViewOnGitHub(repository),
-      enabled: github,
+      action: () => {
+        if (gitHubURL !== null) {
+          config.onViewOnGitHub(gitHubURL)
+        }
+      },
+      enabled: gitHubURL !== null,
     },
     {
       label: openInShell,

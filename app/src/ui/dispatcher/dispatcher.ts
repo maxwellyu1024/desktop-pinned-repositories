@@ -1612,6 +1612,11 @@ export class Dispatcher {
     return this.appStore._openInBrowser(url)
   }
 
+  /** Get the GitHub page of a repository, if its remote is on GitHub */
+  public getRepositoryWebURL(repository: Repository): Promise<string | null> {
+    return this.appStore._getRepositoryWebURL(repository)
+  }
+
   /** Add the pattern to the repository's gitignore. */
   public appendIgnoreRule(
     repository: Repository,

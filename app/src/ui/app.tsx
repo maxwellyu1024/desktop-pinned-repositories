@@ -28,9 +28,9 @@ import {
   isWindowsAndNoLongerSupportedByElectron,
 } from '../lib/get-os'
 import { MenuEvent, isTestMenuEvent } from '../main-process/menu'
+import { getRepositoryWebURL } from '../lib/repository-web-url'
 import {
   Repository,
-  getGitHubHtmlUrl,
   getNonForkGitHubRepository,
   isRepositoryWithGitHubRepository,
 } from '../models/repository'
@@ -1360,9 +1360,23 @@ export class App extends React.Component<IAppProps, IAppState> {
   }
 
   private viewRepositoryOnGitHub() {
-    const repository = this.getRepository()
+    const selectedState = this.state.selectedState
+    if (
+      selectedState === null ||
+      !(selectedState.repository instanceof Repository)
+    ) {
+      return
+    }
 
-    this.viewOnGitHub(repository)
+    const remote =
+      selectedState.type === SelectionType.Repository
+        ? selectedState.state.remote
+        : null
+    const url = getRepositoryWebURL(selectedState.repository, remote)
+
+    if (url !== null) {
+      this.viewOnGitHub(url)
+    }
   }
 
   /** Returns the URL to the current repository if hosted on GitHub */
@@ -3412,18 +3426,8 @@ export class App extends React.Component<IAppProps, IAppState> {
     )
   }
 
-  private viewOnGitHub = (
-    repository: Repository | CloningRepository | null
-  ) => {
-    if (!(repository instanceof Repository)) {
-      return
-    }
-
-    const url = getGitHubHtmlUrl(repository)
-
-    if (url) {
-      this.props.dispatcher.openInBrowser(url)
-    }
+  private viewOnGitHub = (url: string) => {
+    this.props.dispatcher.openInBrowser(url)
   }
 
   private openInShell = (repository: Repository | CloningRepository) => {
@@ -3580,11 +3584,16 @@ export class App extends React.Component<IAppProps, IAppState> {
     )
   }
 
-  private onRepositoryToolbarButtonContextMenu = () => {
+  private onRepositoryToolbarButtonContextMenu = async () => {
     const repository = this.state.selectedState?.repository
     if (repository === undefined) {
       return
     }
+
+    const gitHubURL =
+      repository instanceof Repository
+        ? await this.props.dispatcher.getRepositoryWebURL(repository)
+        : null
 
     const onChangeRepositoryAlias = (repository: Repository) => {
       this.props.dispatcher.showPopup({
@@ -3642,6 +3651,7 @@ export class App extends React.Component<IAppProps, IAppState> {
       onTogglePinRepository: onTogglePinRepository,
       pinnedRepositories: getPinnedRepositories(this.state.repositories),
       onReorderPinnedRepositories: onReorderPinnedRepositories,
+      gitHubURL,
       onViewOnGitHub: this.viewOnGitHub,
       onCreateWorktree: enableWorktreeSupport() ? onCreateWorktree : undefined,
       onShowWorktrees: enableWorktreeSupport() ? onShowWorktrees : undefined,

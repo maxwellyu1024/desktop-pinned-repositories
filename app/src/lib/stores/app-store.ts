@@ -334,6 +334,8 @@ import { arrayEquals } from '../equality'
 import { MenuLabelsEvent } from '../../models/menu-labels'
 import { findRemoteBranchName } from './helpers/find-branch-name'
 import { updateRemoteUrl } from './updates/update-remote-url'
+import { findDefaultRemote } from './helpers/find-default-remote'
+import { getRepositoryWebURL } from '../repository-web-url'
 import {
   TutorialStep,
   orderedTutorialSteps,
@@ -7699,6 +7701,26 @@ export class AppStore extends TypedBaseStore<IAppState> {
   /** Takes a URL and opens it using the system default application */
   public _openInBrowser(url: string): Promise<boolean> {
     return shell.openExternal(url)
+  }
+
+  /**
+   * Get the GitHub page of a repository from its associated GitHub repository
+   * or, without a signed in account, from its default remote.
+   */
+  public async _getRepositoryWebURL(
+    repository: Repository
+  ): Promise<string | null> {
+    if (repository.missing) {
+      return getRepositoryWebURL(repository, null)
+    }
+
+    try {
+      const remote = findDefaultRemote(await getRemotes(repository))
+      return getRepositoryWebURL(repository, remote)
+    } catch (e) {
+      log.error(`Could not read the remotes of ${repository.path}`, e)
+      return getRepositoryWebURL(repository, null)
+    }
   }
 
   public async _editGlobalGitConfig() {

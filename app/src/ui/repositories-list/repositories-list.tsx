@@ -57,8 +57,8 @@ interface IRepositoriesListProps {
   /** Called when the repository should be shown in Finder/Explorer/File Manager. */
   readonly onShowRepository: (repository: Repositoryish) => void
 
-  /** Called when the repository should be opened on GitHub in the default web browser. */
-  readonly onViewOnGitHub: (repository: Repositoryish) => void
+  /** Called with the GitHub page of a repository to open in the default web browser. */
+  readonly onViewOnGitHub: (url: string) => void
 
   /** Called when the repository should be shown in the shell. */
   readonly onOpenInShell: (repository: Repositoryish) => void
@@ -368,11 +368,18 @@ export class RepositoriesList extends React.Component<
     this.props.onSelectionChanged(item.repository)
   }
 
-  private onItemContextMenu = (
+  private onItemContextMenu = async (
     item: IRepositoryListItem,
     event: React.MouseEvent<HTMLDivElement>
   ) => {
     event.preventDefault()
+
+    const { repository } = item
+    // 远程地址需要读取 git 配置，未登录时也能据此得到 GitHub 页面
+    const gitHubURL =
+      repository instanceof Repository
+        ? await this.props.dispatcher.getRepositoryWebURL(repository)
+        : null
 
     const items = generateRepositoryListContextMenu({
       onRemoveRepository: this.props.onRemoveRepository,
@@ -393,6 +400,7 @@ export class RepositoriesList extends React.Component<
       onTogglePinRepository: this.onTogglePin,
       pinnedRepositories: this.getPinnedRepositories(this.props.repositories),
       onReorderPinnedRepositories: this.onReorderPinnedRepositories,
+      gitHubURL,
       onViewOnGitHub: this.props.onViewOnGitHub,
       onCreateWorktree: enableWorktreeSupport()
         ? this.onCreateWorktree
@@ -400,7 +408,7 @@ export class RepositoriesList extends React.Component<
       onShowWorktrees: enableWorktreeSupport()
         ? this.onShowWorktrees
         : undefined,
-      repository: item.repository,
+      repository,
       shellLabel: this.props.shellLabel,
     })
 

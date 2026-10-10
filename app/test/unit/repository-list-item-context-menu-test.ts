@@ -42,6 +42,7 @@ function createMenu(
     selectedShell: 'Ghostty' as Shell,
     availableShells: ['Terminal', 'iTerm2', 'Ghostty'] as Array<Shell>,
     askForConfirmationOnRemoveRepository: true,
+    gitHubURL: null,
     onViewOnGitHub: noop,
     onOpenInShell: noop,
     onShowRepository: noop,
@@ -130,6 +131,27 @@ describe('generateRepositoryListContextMenu', () => {
 
     assert.equal(findItem(items, editorSubmenuLabel)?.enabled, false)
     assert.equal(findItem(items, shellSubmenuLabel)?.enabled, false)
+  })
+
+  it('disables View on GitHub when the repository has no GitHub page', () => {
+    assert.equal(findItem(createMenu({}), 'View on GitHub')?.enabled, false)
+  })
+
+  it('opens the GitHub page of the repository', () => {
+    const onViewOnGitHub = mock.fn((_url: string) => {})
+    const item = findItem(
+      createMenu({
+        gitHubURL: 'https://github.com/octocat/Hello-World',
+        onViewOnGitHub,
+      }),
+      'View on GitHub'
+    )
+
+    assert.equal(item?.enabled, true)
+    item?.action?.()
+    assert.deepEqual(onViewOnGitHub.mock.calls[0].arguments, [
+      'https://github.com/octocat/Hello-World',
+    ])
   })
 
   describe('moving pinned repositories', () => {
