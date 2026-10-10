@@ -27,6 +27,7 @@ import memoizeOne from 'memoize-one'
 import { KeyboardShortcut } from '../keyboard-shortcut/keyboard-shortcut'
 import { IRepositoryIdentityState } from '../../lib/identity/repository-identity'
 import { hasIdentityMismatch } from '../../lib/identity/repository-identity-tracker'
+import { IIdentity, RepositoryIdentityBinding } from '../../models/identity'
 import { generateRepositoryListContextMenu } from '../repositories-list/repository-list-item-context-menu'
 import { enableWorktreeSupport } from '../../lib/feature-flag'
 import { SectionFilterList } from '../lib/section-filter-list'
@@ -53,8 +54,8 @@ interface IRepositoriesListProps {
     IRepositoryIdentityState
   >
 
-  /** Whether there are any identities. */
-  readonly hasIdentities: boolean
+  /** The identities to choose from. */
+  readonly identities: ReadonlyArray<IIdentity>
 
   /** Called when a repository has been selected. */
   readonly onSelectionChanged: (repository: Repositoryish) => void
@@ -429,10 +430,9 @@ export class RepositoriesList extends React.Component<
         : undefined,
       repository,
       shellLabel: this.props.shellLabel,
-      hasIdentities: this.props.hasIdentities,
-      identityState:
-        this.props.repositoryIdentityStates.get(repository.id) ?? null,
-      onSetRepositoryIdentity: this.onSetRepositoryIdentity,
+      identities: this.props.identities,
+      repositoryIdentityStates: this.props.repositoryIdentityStates,
+      onSwitchRepositoryIdentity: this.onSwitchRepositoryIdentity,
       onApplyRepositoryIdentity: this.onApplyRepositoryIdentity,
     })
 
@@ -603,15 +603,15 @@ export class RepositoriesList extends React.Component<
     this.props.dispatcher.changeRepositoryAlias(repository, null)
   }
 
-  private onSetRepositoryIdentity = (repository: Repository) => {
-    this.props.dispatcher.showPopup({
-      type: PopupType.SetRepositoriesIdentity,
-      repositories: [repository],
-    })
+  private onSwitchRepositoryIdentity = (
+    repository: Repository,
+    binding: RepositoryIdentityBinding
+  ) => {
+    this.props.dispatcher.switchRepositoriesIdentity([repository], binding)
   }
 
   private onApplyRepositoryIdentity = (repository: Repository) => {
-    this.props.dispatcher.reviewRepositoryIdentities([repository], true)
+    this.props.dispatcher.applyRepositoriesIdentity([repository])
   }
 
   private onCreateWorktree = (repository: Repository) => {

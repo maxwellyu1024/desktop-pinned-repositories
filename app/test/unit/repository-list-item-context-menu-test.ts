@@ -55,9 +55,9 @@ function createMenu(
     onTogglePinRepository: noop,
     pinnedRepositories: [],
     onReorderPinnedRepositories: noop,
-    hasIdentities: false,
-    identityState: null,
-    onSetRepositoryIdentity: noop,
+    identities: [],
+    repositoryIdentityStates: new Map(),
+    onSwitchRepositoryIdentity: noop,
     onApplyRepositoryIdentity: noop,
     ...overrides,
   })
@@ -219,20 +219,17 @@ describe('generateRepositoryListContextMenu', () => {
     })
   })
   describe('identities', () => {
-    const setLabel = __DARWIN__ ? 'Set Identity…' : 'Set identity…'
-    const applyLabel = __DARWIN__
-      ? 'Apply Identity Work…'
-      : 'Apply identity Work…'
+    const work = {
+      id: 'work',
+      label: 'Work',
+      authorName: 'Me',
+      authorEmail: 'me@work.com',
+      rules: [{ host: 'github.com', namespace: 'acme' }],
+    }
     const identityState = {
       remote: { host: 'github.com', fullPath: 'acme/app', sshHost: null },
       plan: {
-        identity: {
-          id: 'work',
-          label: 'Work',
-          authorName: 'Me',
-          authorEmail: 'me@work.com',
-          rules: [],
-        },
+        identity: work,
         changes: [
           {
             key: 'user.email',
@@ -246,25 +243,55 @@ describe('generateRepositoryListContextMenu', () => {
       },
       localEmail: 'me@home.com',
       localName: null,
+      marker: null,
     }
+    const identityMenu = (
+      overrides: Partial<
+        Parameters<typeof generateRepositoryListContextMenu>[0]
+      >
+    ) =>
+      findItem(
+        createMenu({
+          identities: [work],
+          repositoryIdentityStates: new Map([[1, identityState]]),
+          ...overrides,
+        }),
+        'Identity'
+      )?.submenu
 
-    it('are only offered when there are identities', () => {
-      assert.equal(findItem(createMenu({}), setLabel), undefined)
-      assert.ok(findItem(createMenu({ hasIdentities: true }), setLabel))
-      assert.equal(
-        findItem(createMenu({ hasIdentities: true }), applyLabel),
-        undefined
+    it('is only offered when there are identities', () => {
+      assert.equal(findItem(createMenu({}), 'Identity'), undefined)
+    })
+
+    it('marks the current choice and offers to apply the identity', () => {
+      const submenu = identityMenu({})
+      assert(submenu !== undefined)
+      assert.deepEqual(
+        submenu
+          .filter(i => i.type !== 'separator')
+          .map(i => [i.label, i.checked]),
+        [
+          ['Automatic (Work)', true],
+          ['Work', false],
+          [__DARWIN__ ? 'No Identity' : 'No identity', false],
+          ['Apply Work', undefined],
+        ]
       )
     })
 
-    it('applies the identity whose config differs', () => {
+    it('switches and applies right away', () => {
+      const onSwitchRepositoryIdentity = mock.fn()
       const onApplyRepositoryIdentity = mock.fn()
-      const menu = createMenu({
-        hasIdentities: true,
-        identityState,
+      const submenu = identityMenu({
+        onSwitchRepositoryIdentity,
         onApplyRepositoryIdentity,
       })
-      findItem(menu, applyLabel)?.action?.()
+      findItem(submenu ?? [], 'Work')?.action?.()
+      findItem(submenu ?? [], 'Apply Work')?.action?.()
+      assert.deepEqual(onSwitchRepositoryIdentity.mock.calls[0].arguments[1], {
+        kind: 'identity',
+        id: 'work',
+      })
       assert.equal(onApplyRepositoryIdentity.mock.callCount(), 1)
     })
   })

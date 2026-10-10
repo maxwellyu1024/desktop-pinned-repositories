@@ -7,6 +7,7 @@ import {
   clearIdentityMarker,
   loadRepositoryIdentityState,
   readLocalGitConfig,
+  writeLocalConfig,
 } from '../../../src/lib/identity/repository-identity'
 import { IIdentity } from '../../../src/models/identity'
 
@@ -57,6 +58,37 @@ describe('repository identity', () => {
     const cleared = await readLocalGitConfig(repository.path)
     assert.equal(cleared.has('ghdock.identity'), false)
     assert.equal(cleared.get('user.name'), 'Work Name')
+  })
+
+  it('writes and removes values, and changes remotes', async t => {
+    const repository = await setupEmptyRepository(t)
+    await exec(
+      ['remote', 'add', 'origin', 'https://example.com/acme/app.git'],
+      repository.path
+    )
+
+    await writeLocalConfig(repository.path, [
+      { key: 'user.name', value: 'Work Name' },
+      { key: 'remote.origin.url', value: 'git@example.com:acme/app.git' },
+    ])
+    let config = await readLocalGitConfig(repository.path)
+    assert.equal(config.get('user.name'), 'Work Name')
+    assert.equal(
+      config.get('remote.origin.url'),
+      'git@example.com:acme/app.git'
+    )
+
+    await writeLocalConfig(repository.path, [
+      { key: 'user.name', value: null },
+      { key: 'user.name', value: null },
+      { key: 'remote.origin.url', value: 'https://example.com/acme/app.git' },
+    ])
+    config = await readLocalGitConfig(repository.path)
+    assert.equal(config.has('user.name'), false)
+    assert.equal(
+      config.get('remote.origin.url'),
+      'https://example.com/acme/app.git'
+    )
   })
 
   it("doesn't use an identity when told not to", async t => {

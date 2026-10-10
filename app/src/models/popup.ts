@@ -134,7 +134,6 @@ export enum PopupType {
   ApplyIdentities = 'ApplyIdentities',
   EditIdentity = 'EditIdentity',
   SuggestIdentities = 'SuggestIdentities',
-  SetRepositoriesIdentity = 'SetRepositoriesIdentity',
 }
 
 interface IBasePopup {
@@ -570,7 +569,11 @@ export type PopupDetail =
       paths: ReadonlyArray<string>
     }
   | { type: PopupType.AddRepositoriesFromApps }
-  | { type: PopupType.ManageRepositories }
+  | {
+      type: PopupType.ManageRepositories
+      /** The group to show first, see `ManageRepositoriesDialog`. */
+      initialGroupKey?: string
+    }
   | {
       type: PopupType.ImportConfiguration
       path: string
@@ -594,8 +597,4 @@ export type PopupDetail =
       identity: IIdentity | null
     }
   | { type: PopupType.SuggestIdentities }
-  | {
-      type: PopupType.SetRepositoriesIdentity
-      repositories: ReadonlyArray<Repository>
-    }
 export type Popup = IBasePopup & PopupDetail

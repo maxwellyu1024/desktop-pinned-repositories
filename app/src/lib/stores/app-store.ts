@@ -467,7 +467,11 @@ import {
 import { readSettings, writeSettings } from '../configuration/settings'
 import { scanForRepositories } from '../scan-repositories'
 import { findRepositorySources, IRepositorySource } from '../repository-sources'
-import { IIdentity, RepositoryIdentityBinding } from '../../models/identity'
+import {
+  bindingsEqual,
+  IIdentity,
+  RepositoryIdentityBinding,
+} from '../../models/identity'
 import {
   hasIdentityMismatch,
   loadRepositoryIdentityStates,
@@ -477,7 +481,13 @@ import {
   applyIdentityChanges,
   clearIdentityMarker,
   IRepositoryIdentityState,
+  writeLocalConfig,
 } from '../identity/repository-identity'
+import {
+  describeIdentitySwitch,
+  getIdentitySwitchWrite,
+  IIdentitySwitchUndo,
+} from '../identity/identity-switch'
 import { IIdentityChange } from '../identity/identity-changes'
 
 const LastSelectedRepositoryIDKey = 'last-selected-repository-id'
@@ -8499,13 +8509,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
   /**
    * Set how the repositories choose their identity. Repositories that stop
    * using one keep their config but lose the marker saying it was applied.
-   *
-   * @param review  Whether to then show what applying the identity changes.
    */
   public async _setRepositoriesIdentity(
     repositories: ReadonlyArray<Repository>,
-    binding: RepositoryIdentityBinding,
-    review: boolean
+    binding: RepositoryIdentityBinding
   ): Promise<void> {
     await this.repositoriesStore.updateRepositoriesIdentity(
       repositories,
@@ -8523,13 +8530,169 @@ export class AppStore extends TypedBaseStore<IAppState> {
           )
       )
     }
+  }
 
-    if (review && binding.kind !== 'none') {
-      const ids = new Set(repositories.map(r => r.id))
-      const updated = (await this.repositoriesStore.getAll()).filter(r =>
-        ids.has(r.id)
+  /** The given repositories as stored now. */
+  private async getStoredRepositories(repositories: ReadonlyArray<Repository>) {
+    const ids = new Set(repositories.map(r => r.id))
+    return (await this.repositoriesStore.getAll()).filter(r => ids.has(r.id))
+  }
+
+  /**
+   * Choose how the repositories pick their identity and apply it right away.
+   * The user chose it, so values that differ are replaced, except switching
+   * HTTPS remotes to SSH. A banner offers to undo it.
+   */
+  public _switchRepositoriesIdentity(
+    repositories: ReadonlyArray<Repository>,
+    binding: RepositoryIdentityBinding
+  ) {
+    return this.switchRepositoriesIdentity(repositories, binding)
+  }
+
+  /** Apply the identities the repositories use now, like switching to them. */
+  public _applyRepositoriesIdentity(repositories: ReadonlyArray<Repository>) {
+    return this.switchRepositoriesIdentity(repositories, null)
+  }
+
+  private async switchRepositoriesIdentity(
+    repositories: ReadonlyArray<Repository>,
+    binding: RepositoryIdentityBinding | null
+  ) {
+    const before = await this.getStoredRepositories(repositories)
+    if (binding !== null) {
+      await this.repositoriesStore.updateRepositoriesIdentity(before, binding)
+    }
+
+    const updated = await this.getStoredRepositories(before)
+    const states = await this._loadRepositoryIdentityStates(updated)
+    const undo = new Array<IIdentitySwitchUndo>()
+    const used = new Array<IIdentity | null>()
+    const failed = new Array<string>()
+    let warnings = 0
+    let changed = false
+
+    for (const repository of before) {
+      const state = states.get(repository.id)
+      const write = state === undefined ? null : getIdentitySwitchWrite(state)
+      const rebound =
+        binding !== null && !bindingsEqual(repository.identity, binding)
+
+      if (write !== null) {
+        used.push(write.identity)
+        warnings += write.warnings.length
+        try {
+          await writeLocalConfig(repository.path, write.values)
+        } catch (e) {
+          log.error(`Could not write the Git config of ${repository.path}`, e)
+          failed.push(repository.path)
+        }
+      }
+
+      if (rebound || (write !== null && write.values.length > 0)) {
+        changed = true
+        undo.push({
+          repositoryId: repository.id,
+          binding: repository.identity,
+          restore: write?.restore ?? [],
+        })
+      }
+    }
+
+    await this.onIdentityConfigChanged(updated)
+
+    if (failed.length > 0) {
+      this.emitError(
+        new Error(`Could not write the Git config of:\n\n${failed.join('\n')}`)
       )
-      await this._reviewRepositoryIdentities(updated, true)
+    }
+
+    const [first] = before
+    if (first === undefined) {
+      return
+    }
+
+    this._setBanner({
+      type: BannerType.IdentitySwitched,
+      message: describeIdentitySwitch(
+        before.length === 1
+          ? first.alias ?? first.name
+          : `${before.length} repositories`,
+        before.length !== 1,
+        binding,
+        used,
+        warnings
+      ),
+      onUndo: changed ? () => this._undoIdentitySwitch(undo) : undefined,
+    })
+  }
+
+  /** Put repositories back the way they were before switching identity. */
+  public async _undoIdentitySwitch(
+    undo: ReadonlyArray<IIdentitySwitchUndo>
+  ): Promise<void> {
+    const repositories = await this.repositoriesStore.getAll()
+    const restored = new Array<Repository>()
+    const failed = new Array<string>()
+
+    for (const { repositoryId, binding, restore } of undo) {
+      const repository = repositories.find(r => r.id === repositoryId)
+      if (repository === undefined) {
+        continue
+      }
+
+      restored.push(repository)
+      if (!bindingsEqual(repository.identity, binding)) {
+        await this.repositoriesStore.updateRepositoriesIdentity(
+          [repository],
+          binding
+        )
+      }
+
+      if (!repository.missing && restore.length > 0) {
+        try {
+          await writeLocalConfig(repository.path, restore)
+        } catch (e) {
+          log.error(`Could not write the Git config of ${repository.path}`, e)
+          failed.push(repository.path)
+        }
+      }
+    }
+
+    await this.onIdentityConfigChanged(
+      await this.getStoredRepositories(restored)
+    )
+
+    if (failed.length > 0) {
+      this.emitError(
+        new Error(
+          `Could not restore the Git config of:\n\n${failed.join('\n')}`
+        )
+      )
+    }
+
+    this._setBanner({
+      type: BannerType.IdentitySwitchUndone,
+      message:
+        restored.length === 1
+          ? `${restored[0].alias ?? restored[0].name} is back to how it was.`
+          : `${restored.length} repositories are back to how they were.`,
+    })
+  }
+
+  /** Recheck repositories after their local config changed. */
+  private async onIdentityConfigChanged(
+    repositories: ReadonlyArray<Repository>
+  ) {
+    await this.identityTracker.refresh(repositories)
+
+    const selected = this.selectedRepository
+    if (
+      selected instanceof Repository &&
+      repositories.some(r => r.id === selected.id)
+    ) {
+      await this.gitStoreCache.get(selected).loadRemotes()
+      await this._refreshRepository(selected)
     }
   }
 
@@ -8554,20 +8717,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     // The entries may predate a change to how the repositories choose their
     // identity, so recheck them as they are now.
-    const ids = new Set(entries.map(e => e.repository.id))
-    const repositories = (await this.repositoriesStore.getAll()).filter(r =>
-      ids.has(r.id)
+    await this.onIdentityConfigChanged(
+      await this.getStoredRepositories(entries.map(e => e.repository))
     )
-    await this.identityTracker.refresh(repositories)
-
-    const selected = this.selectedRepository
-    if (
-      selected instanceof Repository &&
-      repositories.some(r => r.id === selected.id)
-    ) {
-      await this.gitStoreCache.get(selected).loadRemotes()
-      await this._refreshRepository(selected)
-    }
 
     if (failed.length > 0) {
       this.emitError(

@@ -26,6 +26,27 @@ export function renderBanner(
   onDismissed: () => void
 ): JSX.Element {
   switch (banner.type) {
+    case BannerType.IdentitySwitched:
+      return (
+        <SuccessBanner
+          key="identity-switched"
+          timeout={15000}
+          onDismissed={onDismissed}
+          onUndo={banner.onUndo}
+        >
+          {banner.message}
+        </SuccessBanner>
+      )
+    case BannerType.IdentitySwitchUndone:
+      return (
+        <SuccessBanner
+          key="identity-switch-undone"
+          timeout={5000}
+          onDismissed={onDismissed}
+        >
+          {banner.message}
+        </SuccessBanner>
+      )
     case BannerType.SuccessfulMerge:
       return (
         <SuccessfulMerge

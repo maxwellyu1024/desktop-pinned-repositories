@@ -9,6 +9,8 @@ import { Button } from '../lib/button'
 import { Octicon } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
 import { formatRules } from '../../lib/identity/identity-rules'
+import { LinkButton } from '../lib/link-button'
+import { getIdentityMismatchGroupKey } from '../repository-management/manage-repositories-dialog'
 
 interface IIdentitiesProps {
   readonly dispatcher: Dispatcher
@@ -35,6 +37,7 @@ interface IIdentityRowProps {
   readonly onRemove: (identity: IIdentity) => void
   readonly onConfirmRemoval: (identity: IIdentity | null) => void
   readonly onMove: (index: number, offset: number) => void
+  readonly onShowMismatches: (identity: IIdentity) => void
 }
 
 class IdentityRow extends React.Component<IIdentityRowProps> {
@@ -44,6 +47,8 @@ class IdentityRow extends React.Component<IIdentityRowProps> {
   private onCancelRemove = () => this.props.onConfirmRemoval(null)
   private onMoveUp = () => this.props.onMove(this.props.index, -1)
   private onMoveDown = () => this.props.onMove(this.props.index, 1)
+  private onShowMismatches = () =>
+    this.props.onShowMismatches(this.props.identity)
 
   private renderActions() {
     if (this.props.confirmingRemoval) {
@@ -121,7 +126,10 @@ class IdentityRow extends React.Component<IIdentityRowProps> {
             {mismatchCount > 0 && (
               <span className="identity-mismatch">
                 {' '}
-                · {mismatchCount} not set up
+                ·{' '}
+                <LinkButton onClick={this.onShowMismatches}>
+                  {mismatchCount} not set up
+                </LinkButton>
               </span>
             )}
           </div>
@@ -180,6 +188,13 @@ export class Identities extends React.Component<
     this.props.dispatcher.saveIdentities(identities)
   }
 
+  private onShowMismatches = (identity: IIdentity) => {
+    this.props.dispatcher.showPopup({
+      type: PopupType.ManageRepositories,
+      initialGroupKey: getIdentityMismatchGroupKey(identity.id),
+    })
+  }
+
   private getCounts() {
     const counts = new Map<string, { used: number; mismatched: number }>()
     for (const state of this.props.repositoryIdentityStates.values()) {
@@ -229,6 +244,7 @@ export class Identities extends React.Component<
                   onRemove={this.onRemove}
                   onConfirmRemoval={this.onConfirmRemoval}
                   onMove={this.onMove}
+                  onShowMismatches={this.onShowMismatches}
                 />
               ))}
             </ul>

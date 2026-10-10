@@ -16,10 +16,13 @@ import {
 } from './repository-picker'
 import { IRepositoryRemote, loadRepositoryRemotes } from './repository-remotes'
 import { Button } from '../lib/button'
+import { Octicon } from '../octicons'
+import * as octicons from '../octicons/octicons.generated'
 import { IIdentity } from '../../models/identity'
-import { PopupType } from '../../models/popup'
 import { IRepositoryIdentityState } from '../../lib/identity/repository-identity'
 import { hasIdentityMismatch } from '../../lib/identity/repository-identity-tracker'
+import { showContextualMenu } from '../../lib/menu-item'
+import { buildIdentityMenuItems } from '../identities/identity-menu'
 
 interface IManageRepositoriesDialogProps {
   readonly dispatcher: Dispatcher
@@ -29,6 +32,10 @@ interface IManageRepositoriesDialogProps {
     number,
     IRepositoryIdentityState
   >
+
+  /** The group to show first, the list of all repositories if not given. */
+  readonly initialGroupKey?: string
+
   readonly onDismissed: () => void
 }
 
@@ -48,6 +55,10 @@ const keyOf = (repository: Repository) => repository.id.toString()
 
 const AllGroup = 'all'
 
+/** The group of repositories whose config differs from the identity. */
+export const getIdentityMismatchGroupKey = (identityId: string) =>
+  `identity-mismatch:${identityId}`
+
 /**
  * Lists every repository, grouped by state and by where the default remote is
  * hosted, for removing several at once. Removing takes repositories off the
@@ -62,7 +73,7 @@ export class ManageRepositoriesDialog extends React.Component<
   public constructor(props: IManageRepositoriesDialogProps) {
     super(props)
     this.state = {
-      groupKey: AllGroup,
+      groupKey: props.initialGroupKey ?? AllGroup,
       filterText: '',
       selectedKeys: new Set(),
       remotes: null,
@@ -126,8 +137,9 @@ export class ManageRepositoriesDialog extends React.Component<
   }
 
   /**
-   * Groups by identity: one per identity, the repositories that use none, and
-   * the ones whose config differs from their identity.
+   * Groups by identity: one per identity, followed by its repositories whose
+   * config differs from it, the repositories that use none, and all the ones
+   * whose config differs from their identity.
    */
   private getIdentityGroups(
     repositories: ReadonlyArray<Repository>
@@ -146,11 +158,20 @@ export class ManageRepositoriesDialog extends React.Component<
         .map(keyOf)
 
     const groups: ReadonlyArray<IRepositoryGroup> = [
-      ...this.props.identities.map(identity => ({
-        key: `identity:${identity.id}`,
-        label: identity.label,
-        keys: keysOf(s => s.plan?.identity.id === identity.id),
-      })),
+      ...this.props.identities.flatMap(identity => [
+        {
+          key: `identity:${identity.id}`,
+          label: identity.label,
+          keys: keysOf(s => s.plan?.identity.id === identity.id),
+        },
+        {
+          key: getIdentityMismatchGroupKey(identity.id),
+          label: `${identity.label}, not set up`,
+          keys: keysOf(
+            s => s.plan?.identity.id === identity.id && hasIdentityMismatch(s)
+          ),
+        },
+      ]),
       {
         key: 'identity-none',
         label: __DARWIN__ ? 'No Identity' : 'No identity',
@@ -240,11 +261,19 @@ export class ManageRepositoriesDialog extends React.Component<
   private onPin = () => this.setPinned(true)
   private onUnpin = () => this.setPinned(false)
 
-  private onSetIdentity = () => {
-    this.props.dispatcher.showPopup({
-      type: PopupType.SetRepositoriesIdentity,
-      repositories: this.getSelectedRepositories(),
-    })
+  private onShowIdentityMenu = () => {
+    const repositories = this.getSelectedRepositories().filter(r => !r.missing)
+    const { dispatcher } = this.props
+    showContextualMenu(
+      buildIdentityMenuItems({
+        repositories,
+        identities: this.props.identities,
+        states: this.props.repositoryIdentityStates,
+        onSwitch: binding =>
+          dispatcher.switchRepositoriesIdentity(repositories, binding),
+        onApply: () => dispatcher.applyRepositoriesIdentity(repositories),
+      })
+    )
   }
 
   private renderBulkActions(selected: ReadonlyArray<Repository>) {
@@ -268,10 +297,10 @@ export class ManageRepositoriesDialog extends React.Component<
         {this.props.identities.length > 0 && (
           <Button
             size="small"
-            onClick={this.onSetIdentity}
-            disabled={busy || selected.length === 0}
+            onClick={this.onShowIdentityMenu}
+            disabled={busy || selected.every(r => r.missing)}
           >
-            {__DARWIN__ ? 'Set Identity…' : 'Set identity…'}
+            Identity <Octicon symbol={octicons.triangleDown} />
           </Button>
         )}
       </div>

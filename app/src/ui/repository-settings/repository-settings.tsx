@@ -396,8 +396,7 @@ export class RepositorySettings extends React.Component<
         if (!bindingsEqual(this.state.identityBinding, repository.identity)) {
           await this.props.dispatcher.setRepositoriesIdentity(
             [repository],
-            this.state.identityBinding,
-            false
+            this.state.identityBinding
           )
         }
 
@@ -414,11 +413,9 @@ export class RepositorySettings extends React.Component<
     } else if (
       this.state.initialGitConfigLocation === GitConfigLocation.Identity
     ) {
-      await this.props.dispatcher.setRepositoriesIdentity(
-        [repository],
-        { kind: 'none' },
-        false
-      )
+      await this.props.dispatcher.setRepositoriesIdentity([repository], {
+        kind: 'none',
+      })
     }
 
     if (

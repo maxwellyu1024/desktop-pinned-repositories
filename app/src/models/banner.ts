@@ -17,9 +17,21 @@ export enum BannerType {
   SuccessfulReorder = 'SuccessfulReorder',
   ConflictsFound = 'ConflictsFound',
   OSVersionNoLongerSupported = 'OSVersionNoLongerSupported',
+  IdentitySwitched = 'IdentitySwitched',
+  IdentitySwitchUndone = 'IdentitySwitchUndone',
 }
 
 export type Banner =
+  | {
+      readonly type: BannerType.IdentitySwitched
+      readonly message: string
+      /** Puts the repositories back the way they were, if anything changed. */
+      readonly onUndo?: () => void
+    }
+  | {
+      readonly type: BannerType.IdentitySwitchUndone
+      readonly message: string
+    }
   | {
       readonly type: BannerType.SuccessfulMerge
       /** name of the branch that was merged into */

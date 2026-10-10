@@ -251,19 +251,6 @@ export class Dispatcher {
   }
 
   /**
-   * Show what applying their identities changes in the given repositories,
-   * if anything. See `ApplyIdentitiesDialog` for `explicit`.
-   *
-   * @returns Whether there was anything to review.
-   */
-  public reviewRepositoryIdentities(
-    repositories: ReadonlyArray<Repository>,
-    explicit: boolean
-  ): Promise<boolean> {
-    return this.appStore._reviewRepositoryIdentities(repositories, explicit)
-  }
-
-  /**
    * Replace the identities, then review the repositories they affect whose
    * config doesn't match.
    */
@@ -271,13 +258,35 @@ export class Dispatcher {
     return this.appStore._saveIdentities(identities)
   }
 
-  /** Set how the repositories choose the identity they use. */
+  /**
+   * Set how the repositories choose the identity they use, leaving their
+   * config as it is.
+   */
   public setRepositoriesIdentity(
     repositories: ReadonlyArray<Repository>,
-    binding: RepositoryIdentityBinding,
-    review: boolean = true
+    binding: RepositoryIdentityBinding
   ): Promise<void> {
-    return this.appStore._setRepositoriesIdentity(repositories, binding, review)
+    return this.appStore._setRepositoriesIdentity(repositories, binding)
+  }
+
+  /**
+   * Choose how the repositories pick their identity and apply it right away,
+   * with a banner to undo it.
+   */
+  public switchRepositoriesIdentity(
+    repositories: ReadonlyArray<Repository>,
+    binding: RepositoryIdentityBinding
+  ): Promise<void> {
+    return this.appStore._switchRepositoriesIdentity(repositories, binding)
+  }
+
+  /**
+   * Apply the identities the repositories use now, with a banner to undo it.
+   */
+  public applyRepositoriesIdentity(
+    repositories: ReadonlyArray<Repository>
+  ): Promise<void> {
+    return this.appStore._applyRepositoriesIdentity(repositories)
   }
 
   /** Write identity changes to the repositories' local Git config. */

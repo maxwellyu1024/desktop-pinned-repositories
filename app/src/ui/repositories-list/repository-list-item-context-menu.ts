@@ -1,6 +1,8 @@
 import { Repository } from '../../models/repository'
 import { IMenuItem } from '../../lib/menu-item'
 import { IRepositoryIdentityState } from '../../lib/identity/repository-identity'
+import { IIdentity, RepositoryIdentityBinding } from '../../models/identity'
+import { buildIdentityMenuItems } from '../identities/identity-menu'
 import { Repositoryish, movePinnedRepository } from './group-repositories'
 import { Shell } from '../../lib/shells'
 import { writeClipboardText } from '../main-process-proxy'
@@ -44,11 +46,14 @@ interface IRepositoryListItemContextMenuConfig {
   onReorderPinnedRepositories: (repositories: ReadonlyArray<Repository>) => void
   onCreateWorktree?: (repository: Repository) => void
   onShowWorktrees?: (repository: Repository) => void
-  /** Whether there are any identities to choose from */
-  hasIdentities: boolean
-  /** Which identity the repository uses and whether its config matches */
-  identityState: IRepositoryIdentityState | null
-  onSetRepositoryIdentity: (repository: Repository) => void
+  /** The identities to choose from */
+  identities: ReadonlyArray<IIdentity>
+  /** Which identity each repository uses and whether its config matches */
+  repositoryIdentityStates: ReadonlyMap<number, IRepositoryIdentityState>
+  onSwitchRepositoryIdentity: (
+    repository: Repository,
+    binding: RepositoryIdentityBinding
+  ) => void
   onApplyRepositoryIdentity: (repository: Repository) => void
 }
 
@@ -67,7 +72,7 @@ export const generateRepositoryListContextMenu = (
   const items: ReadonlyArray<IMenuItem> = [
     ...buildPinMenuItems(config),
     ...buildAliasMenuItems(config),
-    ...buildIdentityMenuItems(config),
+    ...buildIdentitySubmenuItems(config),
     ...buildWorktreeMenuItems(config),
     {
       label: __DARWIN__ ? 'Copy Repo Name' : 'Copy repo name',
@@ -141,37 +146,32 @@ const buildAliasMenuItems = (
   return items
 }
 
-const buildIdentityMenuItems = (
+const buildIdentitySubmenuItems = (
   config: IRepositoryListItemContextMenuConfig
 ): ReadonlyArray<IMenuItem> => {
-  const { repository, identityState } = config
+  const { repository, identities } = config
 
-  if (!(repository instanceof Repository) || !config.hasIdentities) {
+  if (
+    !(repository instanceof Repository) ||
+    identities.length === 0 ||
+    repository.missing
+  ) {
     return []
   }
 
-  const plan = identityState?.plan ?? null
-  const items: Array<IMenuItem> = [
+  return [
     {
-      label: __DARWIN__ ? 'Set Identity…' : 'Set identity…',
-      action: () => config.onSetRepositoryIdentity(repository),
+      label: 'Identity',
+      submenu: buildIdentityMenuItems({
+        repositories: [repository],
+        identities,
+        states: config.repositoryIdentityStates,
+        onSwitch: binding =>
+          config.onSwitchRepositoryIdentity(repository, binding),
+        onApply: () => config.onApplyRepositoryIdentity(repository),
+      }),
     },
   ]
-
-  if (
-    plan !== null &&
-    (plan.changes.length > 0 || plan.warnings.length > 0) &&
-    !repository.missing
-  ) {
-    items.push({
-      label: __DARWIN__
-        ? `Apply Identity ${plan.identity.label}…`
-        : `Apply identity ${plan.identity.label}…`,
-      action: () => config.onApplyRepositoryIdentity(repository),
-    })
-  }
-
-  return items
 }
 
 const buildWorktreeMenuItems = (

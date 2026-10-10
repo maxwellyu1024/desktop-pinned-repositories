@@ -25,6 +25,15 @@ export interface IRepositoryIdentityState {
 
   /** The local `user.name`, used to suggest identities. */
   readonly localName: string | null
+
+  /** The ID of the identity last applied to the repository, if any. */
+  readonly marker: string | null
+}
+
+/** A local config value to write, null to unset the key. */
+export interface IConfigValue {
+  readonly key: string
+  readonly value: string | null
 }
 
 /** Read the repository's local Git configuration. */
@@ -93,6 +102,7 @@ export async function loadRepositoryIdentityState(
           ),
     localEmail: config.get('user.email') ?? null,
     localName: config.get('user.name') ?? null,
+    marker: config.get(IdentityMarkerKey) ?? null,
   }
 }
 
@@ -100,35 +110,43 @@ export async function loadRepositoryIdentityState(
  * Write the given changes to the repository's local config and mark it as
  * using the identity. Nothing outside the repository is changed.
  */
-export async function applyIdentityChanges(
+export function applyIdentityChanges(
   path: string,
   identity: IIdentity,
   changes: ReadonlyArray<IIdentityChange>
 ): Promise<void> {
-  for (const { key, next } of changes) {
+  return writeLocalConfig(path, [
+    ...changes.map(c => ({ key: c.key, value: c.next })),
+    { key: IdentityMarkerKey, value: identity.id },
+  ])
+}
+
+/**
+ * Write values to the repository's local config in order. Remote URLs are
+ * set through `git remote set-url`.
+ */
+export async function writeLocalConfig(
+  path: string,
+  values: ReadonlyArray<IConfigValue>
+): Promise<void> {
+  for (const { key, value } of values) {
     const remote = /^remote\.(.+)\.url$/.exec(key)
-    if (remote !== null && next !== null) {
+    if (remote !== null && value !== null) {
       await git(
-        ['remote', 'set-url', '--', remote[1], next],
+        ['remote', 'set-url', '--', remote[1], value],
         path,
-        'applyIdentityChanges'
+        'writeLocalConfig'
       )
-    } else if (next === null) {
+    } else if (value === null) {
       await unsetLocalConfigValue(path, key)
     } else {
       await git(
-        ['config', '--local', '--replace-all', key, next],
+        ['config', '--local', '--replace-all', key, value],
         path,
-        'applyIdentityChanges'
+        'writeLocalConfig'
       )
     }
   }
-
-  await git(
-    ['config', '--local', '--replace-all', IdentityMarkerKey, identity.id],
-    path,
-    'applyIdentityChanges'
-  )
 }
 
 /** Stop marking the repository as using an identity, keeping its config. */

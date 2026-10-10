@@ -302,6 +302,7 @@ describe('identity', () => {
       plan: null,
       localEmail: email,
       localName: email === null ? null : 'Local Name',
+      marker: null,
     })
 
     const summarize = (suggestions: ReturnType<typeof inferIdentities>) =>

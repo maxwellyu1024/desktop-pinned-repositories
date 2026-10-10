@@ -237,7 +237,7 @@ import { AddRepositoriesFromAppsDialog } from './repository-management/add-repos
 import { ApplyIdentitiesDialog } from './identities/apply-identities-dialog'
 import { EditIdentityDialog } from './identities/edit-identity-dialog'
 import { SuggestIdentitiesDialog } from './identities/suggest-identities-dialog'
-import { SetRepositoriesIdentityDialog } from './identities/set-repositories-identity-dialog'
+import { RepositoryIdentityBinding } from '../models/identity'
 import { ManageRepositoriesDialog } from './repository-management/manage-repositories-dialog'
 import { ImportConfigurationDialog } from './repository-management/import-configuration-dialog'
 import { RepositoryScanDepth } from '../lib/scan-repositories'
@@ -3130,6 +3130,7 @@ export class App extends React.Component<IAppProps, IAppState> {
             repositories={this.localRepositories}
             identities={this.state.identities}
             repositoryIdentityStates={this.state.repositoryIdentityStates}
+            initialGroupKey={popup.initialGroupKey}
             onDismissed={onPopupDismissedFn}
           />
         )
@@ -3174,16 +3175,6 @@ export class App extends React.Component<IAppProps, IAppState> {
             key="suggest-identities"
             dispatcher={this.props.dispatcher}
             repositories={this.localRepositories}
-            identities={this.state.identities}
-            onDismissed={onPopupDismissedFn}
-          />
-        )
-      case PopupType.SetRepositoriesIdentity:
-        return (
-          <SetRepositoriesIdentityDialog
-            key="set-repositories-identity"
-            dispatcher={this.props.dispatcher}
-            repositories={popup.repositories}
             identities={this.state.identities}
             onDismissed={onPopupDismissedFn}
           />
@@ -3552,7 +3543,7 @@ export class App extends React.Component<IAppProps, IAppState> {
         recentRepositories={this.state.recentRepositories}
         localRepositoryStateLookup={this.state.localRepositoryStateLookup}
         repositoryIdentityStates={this.state.repositoryIdentityStates}
-        hasIdentities={this.state.identities.length > 0}
+        identities={this.state.identities}
         askForConfirmationOnRemoveRepository={
           this.state.askForConfirmationOnRepositoryRemoval
         }
@@ -3763,15 +3754,15 @@ export class App extends React.Component<IAppProps, IAppState> {
       this.showWorktrees()
     }
 
-    const onSetRepositoryIdentity = (repository: Repository) => {
-      this.props.dispatcher.showPopup({
-        type: PopupType.SetRepositoriesIdentity,
-        repositories: [repository],
-      })
+    const onSwitchRepositoryIdentity = (
+      repository: Repository,
+      binding: RepositoryIdentityBinding
+    ) => {
+      this.props.dispatcher.switchRepositoriesIdentity([repository], binding)
     }
 
     const onApplyRepositoryIdentity = (repository: Repository) => {
-      this.props.dispatcher.reviewRepositoryIdentities([repository], true)
+      this.props.dispatcher.applyRepositoriesIdentity([repository])
     }
 
     const onTogglePinRepository = (repository: Repository) => {
@@ -3812,10 +3803,9 @@ export class App extends React.Component<IAppProps, IAppState> {
       onViewOnGitHub: this.viewOnGitHub,
       onCreateWorktree: enableWorktreeSupport() ? onCreateWorktree : undefined,
       onShowWorktrees: enableWorktreeSupport() ? onShowWorktrees : undefined,
-      hasIdentities: this.state.identities.length > 0,
-      identityState:
-        this.state.repositoryIdentityStates.get(repository.id) ?? null,
-      onSetRepositoryIdentity: onSetRepositoryIdentity,
+      identities: this.state.identities,
+      repositoryIdentityStates: this.state.repositoryIdentityStates,
+      onSwitchRepositoryIdentity: onSwitchRepositoryIdentity,
       onApplyRepositoryIdentity: onApplyRepositoryIdentity,
       repository: repository,
       shellLabel: this.state.useCustomShell
