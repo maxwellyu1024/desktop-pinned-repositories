@@ -95,13 +95,15 @@ export class Start extends React.Component<IStartProps, {}> {
               GitHub Privacy Statement.
             </LinkButton>
           </p>
-          <p>
-            {__APP_NAME__} sends usage metrics to improve the product and inform
-            feature decisions.{' '}
-            <LinkButton uri={SamplesURL}>
-              Learn more about user metrics.
-            </LinkButton>
-          </p>
+          {__OFFICIAL_APP__ && (
+            <p>
+              {__APP_NAME__} sends usage metrics to improve the product and
+              inform feature decisions.{' '}
+              <LinkButton uri={SamplesURL}>
+                Learn more about user metrics.
+              </LinkButton>
+            </p>
+          )}
         </div>
       </section>
     )

@@ -45,6 +45,10 @@ jobs:
     env:
       npm_config_arch: ${{ matrix.arch }}
       TARGET_ARCH: ${{ matrix.arch }}
+      # 可选：在仓库 Secrets 中配置自有 OAuth App 后，打包版使用它登录 GitHub；
+      # 两者需同时配置。未配置时为空，构建回退到上游公开的开发用 OAuth App。
+      DESKTOP_OAUTH_CLIENT_ID: ${{ secrets.DESKTOP_OAUTH_CLIENT_ID }}
+      DESKTOP_OAUTH_CLIENT_SECRET: ${{ secrets.DESKTOP_OAUTH_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v7
         with:

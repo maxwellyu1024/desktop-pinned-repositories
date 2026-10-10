@@ -633,7 +633,8 @@ export function buildStatsPayload(body: StatsPayload): ITelemetryPayload {
   }
 }
 
-const defaultPostImplementation = (body: StatsPayload) => {
+/** Send the stats payload to GitHub's usage endpoint. */
+export const postToStatsEndpoint = (body: StatsPayload) => {
   if (enableNewStatsEndpoint()) {
     return fetch(StatsEndpoint, {
       method: 'POST',
@@ -654,6 +655,17 @@ const defaultPostImplementation = (body: StatsPayload) => {
     body: JSON.stringify(body),
   })
 }
+
+/**
+ * 非官方构建不上报使用数据：统计只在本地累计，按“已发送”处理，
+ * 让每日统计照常清空，不向 GitHub 的统计接口发送任何请求。
+ */
+const discardStats = (_body: StatsPayload) =>
+  Promise.resolve(new Response(null, { status: 204 }))
+
+const defaultPostImplementation = __OFFICIAL_APP__
+  ? postToStatsEndpoint
+  : discardStats
 
 /** The store for the app's stats. */
 export class StatsStore implements IStatsStore {

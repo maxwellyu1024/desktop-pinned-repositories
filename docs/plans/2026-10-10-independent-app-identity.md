@@ -66,6 +66,12 @@ Fork 与官方版可同时安装、同时运行，共享资源数为 0：
 
 Fork 使用全新数据目录，首次启动为空；仓库通过 `open -a` 批量添加。官方版数据目录不再被 fork 读写。
 
+## 使用数据
+
+非官方构建不向 GitHub 发送任何使用数据（`app/src/lib/stats/stats-store.ts`）：
+默认的发送实现替换为本地丢弃，每日统计照常清空、opt-in ping 不发出；
+设置 → Advanced 的 “Usage” 选项与欢迎页的使用数据说明在 fork 中不显示。
+
 ## 验收
 
 - 打包产物为 `GHDock.app`，`CFBundleIdentifier` 为 `io.github.maxwellyu1024.GHDock`，`CFBundleURLSchemes` 仅含 `x-github-desktop-dev-auth`。

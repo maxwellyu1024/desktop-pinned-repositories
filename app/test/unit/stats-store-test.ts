@@ -4,7 +4,7 @@ import { ipcRenderer } from 'electron'
 import { TestStatsDatabase } from '../helpers/databases'
 import { mockNotification } from '../helpers/mock-notification'
 
-import { StatsStore } from '../../src/lib/stats'
+import { StatsStore, postToStatsEndpoint } from '../../src/lib/stats'
 import { TestActivityMonitor } from '../helpers/test-activity-monitor'
 import { fakePost } from '../fake-stats-post'
 
@@ -196,7 +196,11 @@ describe('StatsStore', () => {
           return new Response(null, { status: 200 })
         }
       )
-      const store = new StatsStore(statsDb, new TestActivityMonitor())
+      const store = new StatsStore(
+        statsDb,
+        new TestActivityMonitor(),
+        postToStatsEndpoint
+      )
       await store.increment('commits')
 
       assert.strictEqual(await store.sendStats([], []), true)
@@ -238,7 +242,7 @@ describe('StatsStore', () => {
       }
     )
 
-    const store = new StatsStore(statsDb, activityMonitor)
+    const store = new StatsStore(statsDb, activityMonitor, postToStatsEndpoint)
     await store.increment('commits')
     await store.increment('checksFailedNotificationShownCount')
     await store.recordLaunchStats({
@@ -283,6 +287,21 @@ describe('StatsStore', () => {
     assert.ok(Buffer.byteLength(requestBody ?? '') < 16 * 1024)
   })
 
+  it('sends nothing from unofficial builds by default', async t => {
+    statsDb = await createStatsDb()
+    let fetchCount = 0
+    t.mock.method(globalThis, 'fetch', async () => {
+      fetchCount++
+      return new Response(null, { status: 200 })
+    })
+
+    const store = new StatsStore(statsDb, new TestActivityMonitor())
+    await store.increment('commits')
+
+    assert.strictEqual(await store.sendStats([], []), true)
+    assert.strictEqual(fetchCount, 0)
+  })
+
   it('posts structured opt-in pings to the new endpoint', async t => {
     statsDb = await createStatsDb()
     const activityMonitor = new TestActivityMonitor()
@@ -314,7 +333,7 @@ describe('StatsStore', () => {
       }
     )
 
-    new StatsStore(statsDb, activityMonitor)
+    new StatsStore(statsDb, activityMonitor, postToStatsEndpoint)
     await requestReceived
 
     const payload = JSON.parse(requestBody ?? '')

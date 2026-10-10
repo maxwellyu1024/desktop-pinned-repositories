@@ -1,3 +1,24 @@
+# GHDock
+
+GHDock 是基于 [GitHub Desktop](https://github.com/desktop/desktop) 的个人 fork，
+以独立应用身份运行（数据目录、Bundle ID、Windows 安装目录、命令行工具 `ghdock`），
+可与官方 GitHub Desktop 同时安装。在上游基础上增加：
+
+- 仓库置顶：Pinned 分组，支持拖拽与右键菜单排序。
+- 仓库列表显示当前分支；右键菜单可选任意已安装的编辑器、终端打开。
+- 历史列表显示提交哈希短码，点击复制。
+- 支持 SSH 主机别名（`~/.ssh/config` 中的 `Host`）解析 GitHub 仓库；
+  “View on GitHub” 无需登录。
+- 不向 GitHub 上报使用数据；关闭自动更新。
+
+安装包由 GitHub Actions 在每次推送 `development` 后自动构建，
+见 [Releases](https://github.com/maxwellyu1024/ghdock/releases/tag/development-latest)
+（macOS Apple Silicon、Windows x64、Ubuntu x64）。设计与实现记录在 `docs/plans/`。
+
+以下为上游 README 原文。
+
+---
+
 # [GitHub Desktop](https://desktop.github.com)
 
 [GitHub Desktop](https://desktop.github.com/) is an open-source [Electron](https://www.electronjs.org/)-based

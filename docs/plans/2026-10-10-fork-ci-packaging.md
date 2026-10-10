@@ -11,7 +11,15 @@
 | Ubuntu | `ubuntu-22.04` | x64 | `<cliName>_<version>_amd64.deb` |
 
 产物上传为 Actions 构建产物，并滚动更新预发布版本 `development-latest`。
-上游工作流（CI、CodeQL、triage、release）在 GitHub 网页上停用，不改动文件，避免合并上游时冲突。
+fork 只保留 `fork-package.yml`。上游工作流（CI、CodeQL、triage、release）及其专用配置
+（`.github/codeql`、`.github/aw`、`.github/actions/setup-windows-signing`）已删除：
+它们依赖上游的签名证书与密钥，在 fork 中无法运行。合并上游时这些文件若有改动，
+冲突一律按删除处理（`git rm`）。
+
+登录用的 OAuth App 为可选配置：在仓库 Secrets 中同时设置 `DESKTOP_OAUTH_CLIENT_ID`、
+`DESKTOP_OAUTH_CLIENT_SECRET`（回调地址 `x-github-desktop-auth://oauth`）后，打包版使用
+自有 OAuth App；未设置时回退到上游公开的开发用 OAuth App，回调协议为
+`x-github-desktop-dev-auth`。构建、打包、运行时三处的协议选择保持一致。
 
 ## Windows 独立身份
 
