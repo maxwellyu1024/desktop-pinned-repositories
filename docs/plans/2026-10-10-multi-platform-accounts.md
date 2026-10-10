@@ -1,4 +1,4 @@
-# 多代码平台、多账号支持
+# 多代码平台、多账号与仓库身份
 
 状态：方案，未实施。
 
@@ -9,6 +9,9 @@
 - 任意数量账号同时登录，同一平台、同一主机也可登录多个账号（如两个 GitHub.com 账号）。
 - 每个仓库明确绑定一个账号；拉取、推送、PR、CI 状态都使用该账号。
 - 界面文案与流程不绑定具体平台：平台名称来自平台实现，能力缺失时对应界面不显示。
+- 每个仓库有明确的“身份”：提交作者（`user.name` / `user.email` / 签名密钥）、SSH 主机别名、
+  平台账号三者一起，按规则自动套用，并写入仓库自身的 `.git/config`，终端、编辑器等任何 Git 客户端
+  都使用同一身份，信息跟着仓库目录走。
 
 终态指标：
 
@@ -20,6 +23,9 @@
 | 同一主机可同时登录的账号数 | 不限 |
 | 嵌套命名空间（GitLab 子组 `group/sub/repo`）解析失败的远程地址 | 0 |
 | 升级后丢失的账号、令牌、仓库关联 | 0 |
+| 匹配到身份的仓库中，`.git/config` 的作者、远程地址与身份不一致且未提示的仓库 | 0 |
+| 未经确认被覆盖的仓库已有 `user.*` 或远程地址 | 0 |
+| 写入全局 Git 配置或 `~/.ssh/config` 的位置 | 0 |
 
 ## 现状（2026-10-10 调研）
 
@@ -33,6 +39,10 @@
   `repositories.gitHubRepositoryID`、`protectedBranches`；`PullRequestDatabase`、`IssuesDatabase`、
   `GitHubUserDatabase`。
 - 非 GitHub 主机已可通过通用凭据（每主机一个用户名，密码在钥匙串）完成 Git 操作。
+- 仓库设置已有 Git Config 页（`ui/repository-settings/git-config.tsx`），可在“使用全局配置”与
+  “使用本仓库配置”之间切换并填写本仓库的用户名、邮箱；`remote-parsing.ts` 的
+  `resolveRemoteHostAliases` 已能把 SSH 别名解析为真实主机用于匹配。
+- 常见问题：全局 `user.*` 是一个身份，通过另一个 SSH 别名推送的仓库提交作者仍是全局身份。
 
 ## 架构
 
@@ -118,6 +128,58 @@ interface AccountKey {
   `x-token-auth`）。
 - 通用凭据改为每主机多个用户名，与账号使用同一钥匙串命名规则。
 
+### 仓库身份
+
+```ts
+interface IIdentity {
+  readonly id: string
+  readonly label: string                    // 例如 "maxwellyu1024"
+  readonly authorName: string               // user.name
+  readonly authorEmail: string              // user.email
+  readonly signing?: {                      // 可选，写入 user.signingkey / gpg.format / commit.gpgsign
+    readonly format: 'openpgp' | 'ssh' | 'x509'
+    readonly key: string
+  }
+  readonly sshHostAlias?: string            // ~/.ssh/config 中的 Host，如 "maxwellyu1024"
+  readonly account?: AccountKey             // 可选，绑定的平台账号
+  readonly rules: ReadonlyArray<IIdentityRule>
+}
+
+interface IIdentityRule {
+  readonly host: string                     // 真实主机，如 "github.com"（别名先解析为真实主机）
+  readonly namespace?: string               // 命名空间前缀，如 "maxwellyu1024"，支持多级 "group/sub"
+}
+```
+
+- 身份保存在应用数据中（不含密钥内容，只保存密钥 ID 或公钥路径），随配置文件导出导入。
+- 仓库匹配：取默认远程地址，SSH 别名用 `ssh -G <alias>` 解析为真实主机，再按
+  “主机 + 最长命名空间前缀”匹配规则；也可在仓库设置中手动指定身份，手动指定优先。
+- 仓库数据增加 `identityID`（可空），与 `accountKey` 一起表示仓库绑定；身份绑定了账号时，
+  `accountKey` 取身份的账号。
+
+写入仓库配置（只写 `git config --local`）：
+
+| 键 | 值 |
+| --- | --- |
+| `user.name` / `user.email` | 身份的作者信息 |
+| `user.signingkey`、`gpg.format`、`commit.gpgsign` | 身份设置了签名时 |
+| `remote.<默认远程>.url` | 身份设置了 SSH 别名时改写为 `git@<alias>:<fullPath>.git`；HTTPS 远程只在用户选择“改用 SSH”时改写 |
+| `ghdock.identity` | 身份 ID，用于识别由本应用写入的配置，便于检查与更新 |
+
+规则：
+
+- 套用时机：克隆、添加已有仓库、从文件夹添加、从其他应用添加、导入配置、在仓库设置中更换身份、
+  修改身份内容后对其全部仓库重新套用。
+- 仓库已有不同的 `user.*` 或远程地址时，不直接覆盖：在添加类对话框里逐项列出差异（当前值 → 新值），
+  默认不勾选覆盖，确认后才写入。
+- 改写远程地址前校验：别名经 `ssh -G` 解析出的 `hostname` 必须等于原远程主机，`fullPath` 不变；
+  不满足时跳过并提示原因。
+- 身份检查：打开仓库与刷新时比较 `.git/config` 与身份，不一致时在仓库列表项与仓库设置中提示，
+  提供“重新套用”与“改为不使用身份”两个操作。
+- 不写全局 Git 配置，不修改 `~/.ssh/config`；身份编辑器中只读列出 `~/.ssh/config` 的 `Host` 供选择。
+- 首次启用时从现有仓库推断身份建议：按“远程真实主机 + 命名空间 + 本地 `user.email`”聚合，
+  列出建议的身份与规则，用户确认后创建。
+
 ### 界面
 
 | 位置 | 终态 |
@@ -129,6 +191,11 @@ interface AccountKey {
 | PR / MR、CI、分支规则 | 绑定账号的平台具备该能力时显示；术语用平台自己的叫法（Pull Request / Merge Request） |
 | 菜单 | “View on GitHub” 改为 “View on <平台名>”，“Create Pull Request” 按平台显示 MR 等 |
 | Copilot | 只在 GitHub 账号下可用，其余平台不显示入口 |
+| 偏好设置 · 身份 | 身份列表；编辑作者、签名、SSH 别名（从 `~/.ssh/config` 选择）、绑定账号、匹配规则；显示匹配到的仓库数 |
+| 仓库设置 · Git Config | 选项改为“使用全局配置 / 使用身份（下拉选择）/ 使用本仓库自定义配置”，选择身份后显示将写入的配置 |
+| 添加类对话框 | 每个仓库显示匹配到的身份；已有配置与身份不同时列出差异并可逐项选择是否覆盖 |
+| 管理仓库 | 按身份过滤；批量“套用身份”，先预览每个仓库的改动，确认后写入 |
+| 仓库列表 | 身份不一致的仓库显示提示标记 |
 
 ## 数据迁移
 
@@ -142,6 +209,10 @@ interface AccountKey {
    `hostedRepositoryID`，数值不变。
 5. `endpoint-version:*`、`selected-copilot-models-by-account`、`genericGitAuth/username/*` 键名改为
    新的账号键格式。
+6. 身份为新增数据，`repositories.identityID` 初始为空；不自动写入任何仓库配置，
+   由用户确认“从现有仓库推断身份”的建议后才创建身份与绑定。
+7. 配置文件（`docs/plans/2026-10-10-repository-management.md`）`version` 升为 2，新增顶层
+   `identities`，仓库项新增 `identity`（身份 label）；导入 `version: 1` 的文件保持现有行为。
 
 ## 实施顺序
 
@@ -151,15 +222,20 @@ interface AccountKey {
 2. `AccountKey`、账号存储、钥匙串、凭据租约与数据迁移；同主机多账号。
 3. 仓库绑定、远程地址解析、凭据助手按绑定选账号；仓库设置中的账号选项。
 4. 界面：偏好设置账号页、登录流程选平台、克隆、发布、菜单文案、能力驱动的显示。
-5. GitLab 实现（含 MR、流水线状态）。
-6. Gitea / Forgejo 实现。
-7. Bitbucket Cloud 实现。
+5. 仓库身份：身份模型与存储、规则匹配（含 SSH 别名解析）、写入仓库配置与差异确认、
+   身份检查与提示、偏好设置身份页、仓库设置与添加类对话框、管理仓库批量套用、配置文件 v2。
+   身份可不绑定账号，本步骤不依赖 GitLab 等平台实现。
+6. GitLab 实现（含 MR、流水线状态）。
+7. Gitea / Forgejo 实现。
+8. Bitbucket Cloud 实现。
 
 ## 验证
 
 - 单元测试：各平台远程地址解析（含子组、SSH 别名）、账号绑定规则、凭据助手选账号、
   数据迁移（旧 `users`、旧钥匙串键、Dexie 旧版本 → 新版本，迁移失败重试不丢数据）、
-  各平台 API 响应到领域模型的转换。
+  各平台 API 响应到领域模型的转换；身份规则匹配（别名解析、最长命名空间前缀、手动指定优先）、
+  写入仓库配置的差异计算、远程地址改写校验、配置文件 v1 / v2 导入。
 - 手动：同时登录两个 GitHub.com 账号与一个 GitLab 账号，分别克隆、推送、查看 PR / MR 与 CI 状态；
+  为 `maxwellyu1024` 别名建身份后添加仓库，在终端执行 `git config --local -l` 与提交，作者与远程地址正确；
   升级现有数据后账号、仓库、PR 列表完整。
 - 类型检查、ESLint、Prettier 通过。
