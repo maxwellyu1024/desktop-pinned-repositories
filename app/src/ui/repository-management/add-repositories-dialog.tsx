@@ -45,10 +45,10 @@ interface IAddRepositoriesDialogState {
 
 /**
  * Lists repositories found somewhere and adds the selected ones. With several
- * sources the list shows all of them by default, each source can be listed on
- * its own. Repositories that aren't in the list yet start out selected; the
- * selection is shared between sources, so the count on the add button always
- * matches what the "All" view shows as selected.
+ * sources the list shows all of them by default, or the repositories of one
+ * source. Only the selected repositories in the current list are added, so the
+ * add button always counts what is shown. Repositories that aren't in the list
+ * yet start out selected, and checkboxes keep their state between sources.
  */
 export class AddRepositoriesDialog extends React.Component<
   IAddRepositoriesDialogProps,
@@ -88,8 +88,29 @@ export class AddRepositoriesDialog extends React.Component<
 
   private onSubmit = async () => {
     this.setState({ adding: true })
-    await this.props.dispatcher.addRepositories([...this.state.selectedPaths])
+    await this.props.dispatcher.addRepositories(this.getPathsToAdd())
     this.props.onDismissed()
+  }
+
+  /** The source being listed, undefined when listing all sources. */
+  private getListedSource(sources: ReadonlyArray<IRepositorySource>) {
+    return this.state.sourceIndex === AllSources
+      ? undefined
+      : sources[this.state.sourceIndex]
+  }
+
+  /** The repositories in the current list. */
+  private getListedPaths(): ReadonlyArray<string> {
+    const sources = this.props.sources ?? []
+    const source = this.getListedSource(sources)
+    return source === undefined
+      ? [...this.getAllPaths(sources).keys()]
+      : source.paths
+  }
+
+  /** The selected repositories in the current list. */
+  private getPathsToAdd() {
+    return this.getListedPaths().filter(p => this.state.selectedPaths.has(p))
   }
 
   /** Each repository once, with the names of the sources it was found in. */
@@ -108,40 +129,24 @@ export class AddRepositoriesDialog extends React.Component<
     return found
   }
 
-  /** E.g. "IntelliJ IDEA: 2 of 3 selected". */
-  private describeOption(name: string, paths: Iterable<string>) {
-    let total = 0
-    let selected = 0
-    for (const path of paths) {
-      total++
-      if (this.state.selectedPaths.has(path)) {
-        selected++
-      }
-    }
-    return `${name}: ${selected} of ${total} selected`
-  }
-
   private renderSources(sources: ReadonlyArray<IRepositorySource>) {
     const all = this.getAllPaths(sources)
-    const source =
-      this.state.sourceIndex === AllSources
-        ? undefined
-        : sources[this.state.sourceIndex]
-    const showAll = source === undefined
-    const paths = showAll ? [...all.keys()] : source.paths
+    const showAll = this.getListedSource(sources) === undefined
 
-    const items: ReadonlyArray<IRepositoryChecklistItem> = paths.map(path => {
-      const added = this.isAdded(path)
-      const foundIn =
-        showAll && sources.length > 1 ? all.get(path)?.join(', ') : undefined
-      return {
-        key: path,
-        title: Path.basename(path),
-        path,
-        note: added ? 'already added' : foundIn,
-        disabled: added,
+    const items = this.getListedPaths().map(
+      (path): IRepositoryChecklistItem => {
+        const added = this.isAdded(path)
+        const foundIn =
+          showAll && sources.length > 1 ? all.get(path)?.join(', ') : undefined
+        return {
+          key: path,
+          title: Path.basename(path),
+          path,
+          note: added ? 'already added' : foundIn,
+          disabled: added,
+        }
       }
-    })
+    )
 
     return (
       <>
@@ -152,14 +157,11 @@ export class AddRepositoriesDialog extends React.Component<
             onChange={this.onSourceChanged}
           >
             <option value={AllSources}>
-              {this.describeOption(
-                __DARWIN__ ? 'All Apps' : 'All apps',
-                all.keys()
-              )}
+              {__DARWIN__ ? 'All Apps' : 'All apps'} ({all.size})
             </option>
             {sources.map((s, index) => (
               <option key={s.name} value={index}>
-                {this.describeOption(s.name, s.paths)}
+                {s.name} ({s.paths.length})
               </option>
             ))}
           </Select>
@@ -192,7 +194,7 @@ export class AddRepositoriesDialog extends React.Component<
   }
 
   public render() {
-    const count = this.state.selectedPaths.size
+    const count = this.getPathsToAdd().length
 
     return (
       <Dialog
