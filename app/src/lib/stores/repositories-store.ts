@@ -33,7 +33,6 @@ import {
   IIdentity,
   RepositoryIdentityBinding,
 } from '../../models/identity'
-import { Disposable } from 'event-kit'
 
 type AddRepositoryOptions = {
   missing?: boolean
@@ -958,17 +957,9 @@ export class RepositoriesStore extends TypedBaseStore<
       }
     )
 
-    this.emitter.emit('did-update-identities', identities)
     if (orphaned > 0) {
       this.emitUpdatedRepositories()
     }
-  }
-
-  /** Register a function to be called when the identities change. */
-  public onDidUpdateIdentities(
-    fn: (identities: ReadonlyArray<IIdentity>) => void
-  ): Disposable {
-    return this.emitter.on('did-update-identities', fn)
   }
 
   private emitUpdatedRepositories() {

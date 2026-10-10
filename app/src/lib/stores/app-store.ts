@@ -467,6 +467,18 @@ import {
 import { readSettings, writeSettings } from '../configuration/settings'
 import { scanForRepositories } from '../scan-repositories'
 import { findRepositorySources, IRepositorySource } from '../repository-sources'
+import { IIdentity, RepositoryIdentityBinding } from '../../models/identity'
+import {
+  hasIdentityMismatch,
+  loadRepositoryIdentityStates,
+  RepositoryIdentityTracker,
+} from '../identity/repository-identity-tracker'
+import {
+  applyIdentityChanges,
+  clearIdentityMarker,
+  IRepositoryIdentityState,
+} from '../identity/repository-identity'
+import { IIdentityChange } from '../identity/identity-changes'
 
 const LastSelectedRepositoryIDKey = 'last-selected-repository-id'
 
@@ -637,6 +649,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
     number,
     ILocalRepositoryState
   >()
+
+  private readonly identityTracker = new RepositoryIdentityTracker(() =>
+    this.emitUpdate()
+  )
 
   /** Map from shortcut (e.g., :+1:) to on disk URL. */
   private emoji = new Map<string, Emoji>()
@@ -1068,6 +1084,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     this.repositoriesStore.onDidUpdate(updateRepositories => {
       this.repositories = updateRepositories
+      this.identityTracker.update(updateRepositories)
       this.updateRepositorySelectionAfterRepositoriesChanged()
       this.emitUpdate()
     })
@@ -1283,6 +1300,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
       repositories,
       recentRepositories: this.recentRepositories,
       localRepositoryStateLookup: this.localRepositoryStateLookup,
+      identities: this.identityTracker.getIdentities(),
+      repositoryIdentityStates: this.identityTracker.getStates(),
       windowState: this.windowState,
       windowZoomFactor: this.windowZoomFactor,
       appIsFocused: this.appIsFocused,
@@ -2436,9 +2455,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
   /** Load the initial state for the app. */
   public async loadInitialState() {
-    const [accounts, repositories] = await Promise.all([
+    const [accounts, repositories, identities] = await Promise.all([
       this.accountsStore.getAll(),
       this.repositoriesStore.getAll(),
+      this.repositoriesStore.getIdentities(),
     ])
 
     log.info(
@@ -2450,6 +2470,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     this.accounts = accounts
     this.repositories = repositories
+    this.identityTracker.setIdentities(identities, repositories)
     this.alwaysShowWorktreeList = getBoolean(alwaysShowWorktreeListKey, false)
 
     this.updateRepositorySelectionAfterRepositoriesChanged()
@@ -4252,6 +4273,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     this.updateSidebarIndicator(repository, status)
     this.emitUpdate()
+    this.identityTracker.refresh([repository])
 
     const lastPush = await inferLastPushForRepository(
       this.accounts,
@@ -8295,6 +8317,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
     paths: ReadonlyArray<string>
   ): Promise<ReadonlyArray<Repository>> {
     const addedRepositories = new Array<Repository>()
+    const newRepositories = new Array<Repository>()
     const lfsRepositories = new Array<Repository>()
     const invalidPaths = new Array<string>()
 
@@ -8344,6 +8367,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
           this.isUsingLFS(addedRepo),
         ])
         addedRepositories.push(refreshedRepo)
+        newRepositories.push(refreshedRepo)
 
         if (usingLFS) {
           lfsRepositories.push(refreshedRepo)
@@ -8364,7 +8388,146 @@ export class AppStore extends TypedBaseStore<IAppState> {
       })
     }
 
+    await this._reviewRepositoryIdentities(newRepositories, false)
+
     return addedRepositories
+  }
+
+  /** Load which identity each repository uses and how its config differs. */
+  public _loadRepositoryIdentityStates(
+    repositories: ReadonlyArray<Repository>,
+    identities: ReadonlyArray<IIdentity> = this.identityTracker.getIdentities()
+  ): Promise<ReadonlyMap<number, IRepositoryIdentityState>> {
+    return loadRepositoryIdentityStates(repositories, identities)
+  }
+
+  /**
+   * Show what applying their identities changes in the given repositories,
+   * if anything.
+   *
+   * @param explicit  Whether the user asked for the identities, in which case
+   *                  overwriting existing values is selected by default.
+   */
+  public async _reviewRepositoryIdentities(
+    repositories: ReadonlyArray<Repository>,
+    explicit: boolean
+  ): Promise<void> {
+    if (this.identityTracker.getIdentities().length === 0) {
+      return
+    }
+
+    const states = await this._loadRepositoryIdentityStates(repositories)
+    const entries = repositories.flatMap(repository => {
+      const plan = states.get(repository.id)?.plan
+      return plan != null &&
+        (plan.changes.length > 0 || plan.warnings.length > 0)
+        ? [{ repository, plan }]
+        : []
+    })
+
+    if (entries.length > 0) {
+      this._showPopup({ type: PopupType.ApplyIdentities, entries, explicit })
+    }
+  }
+
+  /**
+   * Replace the identities, then review the repositories whose config no
+   * longer matches the identities that changed.
+   */
+  public async _saveIdentities(
+    identities: ReadonlyArray<IIdentity>,
+    changedIdentityIDs: ReadonlyArray<string>
+  ): Promise<void> {
+    await this.repositoriesStore.saveIdentities(identities)
+    await this.identityTracker.setIdentities(identities, this.repositories)
+
+    const changed = new Set(changedIdentityIDs)
+    const states = this.identityTracker.getStates()
+    const affected = this.repositories.filter(repository => {
+      const state = states.get(repository.id)
+      return (
+        state?.plan != null &&
+        changed.has(state.plan.identity.id) &&
+        hasIdentityMismatch(state)
+      )
+    })
+
+    await this._reviewRepositoryIdentities(affected, true)
+  }
+
+  /**
+   * Set how the repositories choose their identity. Repositories that stop
+   * using one keep their config but lose the marker saying it was applied.
+   *
+   * @param review  Whether to then show what applying the identity changes.
+   */
+  public async _setRepositoriesIdentity(
+    repositories: ReadonlyArray<Repository>,
+    binding: RepositoryIdentityBinding,
+    review: boolean
+  ): Promise<void> {
+    await this.repositoriesStore.updateRepositoriesIdentity(
+      repositories,
+      binding
+    )
+
+    if (binding.kind === 'none') {
+      await Promise.all(
+        repositories
+          .filter(r => !r.missing)
+          .map(r =>
+            clearIdentityMarker(r.path).catch(e =>
+              log.warn(`Could not update the Git config of ${r.path}`, e)
+            )
+          )
+      )
+    }
+
+    if (review && binding.kind !== 'none') {
+      const ids = new Set(repositories.map(r => r.id))
+      const updated = (await this.repositoriesStore.getAll()).filter(r =>
+        ids.has(r.id)
+      )
+      await this._reviewRepositoryIdentities(updated, true)
+    }
+  }
+
+  /** Write identity changes to the repositories' local Git config. */
+  public async _applyIdentityChanges(
+    entries: ReadonlyArray<{
+      readonly repository: Repository
+      readonly identity: IIdentity
+      readonly changes: ReadonlyArray<IIdentityChange>
+    }>
+  ): Promise<void> {
+    const failed = new Array<string>()
+
+    for (const { repository, identity, changes } of entries) {
+      try {
+        await applyIdentityChanges(repository.path, identity, changes)
+      } catch (e) {
+        log.error(`Could not apply ${identity.label} to ${repository.path}`, e)
+        failed.push(repository.path)
+      }
+    }
+
+    const repositories = entries.map(e => e.repository)
+    await this.identityTracker.refresh(repositories)
+
+    const selected = this.selectedRepository
+    if (
+      selected instanceof Repository &&
+      repositories.some(r => r.id === selected.id)
+    ) {
+      await this.gitStoreCache.get(selected).loadRemotes()
+      await this._refreshRepository(selected)
+    }
+
+    if (failed.length > 0) {
+      this.emitError(
+        new Error(`Could not write the Git config of:\n\n${failed.join('\n')}`)
+      )
+    }
   }
 
   public async _relocateRepository(repository: Repository): Promise<void> {

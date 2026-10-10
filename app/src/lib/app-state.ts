@@ -15,6 +15,8 @@ import { Account } from '../models/account'
 import { CommitIdentity } from '../models/commit-identity'
 import { IDiff, ImageDiffType } from '../models/diff'
 import { Repository, ILocalRepositoryState } from '../models/repository'
+import { IIdentity } from '../models/identity'
+import { IRepositoryIdentityState } from './identity/repository-identity'
 import { Branch, IAheadBehind } from '../models/branch'
 import { Tip } from '../models/tip'
 import { Commit } from '../models/commit'
@@ -106,6 +108,18 @@ export interface IAppState {
    * A cache of the latest repository state values, keyed by the repository id
    */
   readonly localRepositoryStateLookup: Map<number, ILocalRepositoryState>
+
+  /** The identities repositories commit and push as, in order of precedence. */
+  readonly identities: ReadonlyArray<IIdentity>
+
+  /**
+   * Which identity each repository uses and how its config differs, keyed by
+   * repository ID. Empty while there are no identities.
+   */
+  readonly repositoryIdentityStates: ReadonlyMap<
+    number,
+    IRepositoryIdentityState
+  >
 
   readonly selectedState: PossibleSelections | null
 

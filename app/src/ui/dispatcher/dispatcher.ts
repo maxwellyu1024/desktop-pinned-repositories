@@ -1,3 +1,6 @@
+import { IIdentity, RepositoryIdentityBinding } from '../../models/identity'
+import { IRepositoryIdentityState } from '../../lib/identity/repository-identity'
+import { IIdentityChange } from '../../lib/identity/identity-changes'
 import { Disposable } from 'event-kit'
 
 import {
@@ -237,6 +240,56 @@ export class Dispatcher {
     moveToTrash: boolean
   ): Promise<void> {
     return this.appStore._removeRepositories(repositories, moveToTrash)
+  }
+
+  /** Load which identity each repository uses and how its config differs. */
+  public loadRepositoryIdentityStates(
+    repositories: ReadonlyArray<Repository>,
+    identities?: ReadonlyArray<IIdentity>
+  ): Promise<ReadonlyMap<number, IRepositoryIdentityState>> {
+    return this.appStore._loadRepositoryIdentityStates(repositories, identities)
+  }
+
+  /**
+   * Show what applying their identities changes in the given repositories,
+   * if anything. See `ApplyIdentitiesDialog` for `explicit`.
+   */
+  public reviewRepositoryIdentities(
+    repositories: ReadonlyArray<Repository>,
+    explicit: boolean
+  ): Promise<void> {
+    return this.appStore._reviewRepositoryIdentities(repositories, explicit)
+  }
+
+  /**
+   * Replace the identities, then review the repositories whose config no
+   * longer matches the identities that changed.
+   */
+  public saveIdentities(
+    identities: ReadonlyArray<IIdentity>,
+    changedIdentityIDs: ReadonlyArray<string>
+  ): Promise<void> {
+    return this.appStore._saveIdentities(identities, changedIdentityIDs)
+  }
+
+  /** Set how the repositories choose the identity they use. */
+  public setRepositoriesIdentity(
+    repositories: ReadonlyArray<Repository>,
+    binding: RepositoryIdentityBinding,
+    review: boolean = true
+  ): Promise<void> {
+    return this.appStore._setRepositoriesIdentity(repositories, binding, review)
+  }
+
+  /** Write identity changes to the repositories' local Git config. */
+  public applyIdentityChanges(
+    entries: ReadonlyArray<{
+      readonly repository: Repository
+      readonly identity: IIdentity
+      readonly changes: ReadonlyArray<IIdentityChange>
+    }>
+  ): Promise<void> {
+    return this.appStore._applyIdentityChanges(entries)
   }
 
   /** Choose a folder and offer to add the repositories found in it. */

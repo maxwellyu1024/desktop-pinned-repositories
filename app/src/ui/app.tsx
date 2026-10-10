@@ -234,6 +234,10 @@ import { WorktreeEntry } from '../models/worktree'
 import { shouldShowWorktreeDropdown } from '../lib/worktree-dropdown'
 import { AddRepositoriesDialog } from './repository-management/add-repositories-dialog'
 import { AddRepositoriesFromAppsDialog } from './repository-management/add-repositories-from-apps-dialog'
+import { ApplyIdentitiesDialog } from './identities/apply-identities-dialog'
+import { EditIdentityDialog } from './identities/edit-identity-dialog'
+import { SuggestIdentitiesDialog } from './identities/suggest-identities-dialog'
+import { SetRepositoriesIdentityDialog } from './identities/set-repositories-identity-dialog'
 import { ManageRepositoriesDialog } from './repository-management/manage-repositories-dialog'
 import { ImportConfigurationDialog } from './repository-management/import-configuration-dialog'
 import { RepositoryScanDepth } from '../lib/scan-repositories'
@@ -1847,6 +1851,8 @@ export class App extends React.Component<IAppProps, IAppState> {
             alwaysUseCopilotForConflictResolution={
               this.state.alwaysUseCopilotForConflictResolution
             }
+            identities={this.state.identities}
+            repositoryIdentityStates={this.state.repositoryIdentityStates}
           />
         )
       case PopupType.CopilotUserSettings:
@@ -3133,6 +3139,47 @@ export class App extends React.Component<IAppProps, IAppState> {
             configuration={popup.configuration}
             resolved={popup.resolved}
             repositories={this.localRepositories}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      case PopupType.ApplyIdentities:
+        return (
+          <ApplyIdentitiesDialog
+            key="apply-identities"
+            dispatcher={this.props.dispatcher}
+            entries={popup.entries}
+            explicit={popup.explicit}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      case PopupType.EditIdentity:
+        return (
+          <EditIdentityDialog
+            key="edit-identity"
+            dispatcher={this.props.dispatcher}
+            identity={popup.identity}
+            identities={this.state.identities}
+            repositoryIdentityStates={this.state.repositoryIdentityStates}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      case PopupType.SuggestIdentities:
+        return (
+          <SuggestIdentitiesDialog
+            key="suggest-identities"
+            dispatcher={this.props.dispatcher}
+            repositories={this.localRepositories}
+            identities={this.state.identities}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      case PopupType.SetRepositoriesIdentity:
+        return (
+          <SetRepositoriesIdentityDialog
+            key="set-repositories-identity"
+            dispatcher={this.props.dispatcher}
+            repositories={popup.repositories}
+            identities={this.state.identities}
             onDismissed={onPopupDismissedFn}
           />
         )

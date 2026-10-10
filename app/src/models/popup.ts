@@ -30,6 +30,8 @@ import type { IBYOKModel, IBYOKProvider } from '../lib/copilot/byok'
 import { WorktreeEntry } from './worktree'
 import type { IConfiguration } from '../lib/configuration/configuration-file'
 import type { IResolvedRepositoryEntry } from '../lib/configuration/import-plan'
+import type { IIdentityPlan } from '../lib/identity/identity-changes'
+import type { IIdentity } from './identity'
 
 export enum PopupType {
   RenameBranch = 'RenameBranch',
@@ -129,6 +131,10 @@ export enum PopupType {
   AddRepositoriesFromApps = 'AddRepositoriesFromApps',
   ManageRepositories = 'ManageRepositories',
   ImportConfiguration = 'ImportConfiguration',
+  ApplyIdentities = 'ApplyIdentities',
+  EditIdentity = 'EditIdentity',
+  SuggestIdentities = 'SuggestIdentities',
+  SetRepositoriesIdentity = 'SetRepositoriesIdentity',
 }
 
 interface IBasePopup {
@@ -570,5 +576,24 @@ export type PopupDetail =
       path: string
       configuration: IConfiguration
       resolved: ReadonlyArray<IResolvedRepositoryEntry>
+    }
+  | {
+      type: PopupType.ApplyIdentities
+      entries: ReadonlyArray<{
+        readonly repository: Repository
+        readonly plan: IIdentityPlan
+      }>
+      /** Whether the user asked for the identities, see `ApplyIdentitiesDialog`. */
+      explicit: boolean
+    }
+  | {
+      type: PopupType.EditIdentity
+      /** The identity to edit, null to create one. */
+      identity: IIdentity | null
+    }
+  | { type: PopupType.SuggestIdentities }
+  | {
+      type: PopupType.SetRepositoriesIdentity
+      repositories: ReadonlyArray<Repository>
     }
 export type Popup = IBasePopup & PopupDetail

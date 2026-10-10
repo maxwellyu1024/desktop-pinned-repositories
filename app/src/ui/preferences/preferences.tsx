@@ -42,6 +42,9 @@ import { Prompts } from './prompts'
 import { Repository } from '../../models/repository'
 import { Notifications } from './notifications'
 import { Accessibility } from './accessibility'
+import { Identities } from './identities'
+import { IIdentity } from '../../models/identity'
+import { IRepositoryIdentityState } from '../../lib/identity/repository-identity'
 import { CopilotPreferences } from './copilot'
 import type {
   CopilotFeature,
@@ -127,6 +130,11 @@ interface IPreferencesProps {
   readonly copilotQuotaSnapshotsByAccount: CopilotQuotaSnapshotsByAccount
   readonly byokProviders: ReadonlyArray<IBYOKProvider>
   readonly alwaysUseCopilotForConflictResolution: boolean
+  readonly identities: ReadonlyArray<IIdentity>
+  readonly repositoryIdentityStates: ReadonlyMap<
+    number,
+    IRepositoryIdentityState
+  >
 }
 
 interface IPreferencesState {
@@ -415,6 +423,10 @@ export class Preferences extends React.Component<
               <Octicon className="icon" symbol={octicons.gitCommit} />
               Git
             </span>
+            <span id={this.getTabId(PreferencesTab.Identities)}>
+              <Octicon className="icon" symbol={octicons.idBadge} />
+              Identities
+            </span>
             <span id={this.getTabId(PreferencesTab.Appearance)}>
               <Octicon className="icon" symbol={octicons.paintbrush} />
               Appearance
@@ -458,6 +470,9 @@ export class Preferences extends React.Component<
         break
       case PreferencesTab.Git:
         suffix = 'git'
+        break
+      case PreferencesTab.Identities:
+        suffix = 'identities'
         break
       case PreferencesTab.Appearance:
         suffix = 'appearance'
@@ -648,6 +663,15 @@ export class Preferences extends React.Component<
         )
         break
       }
+      case PreferencesTab.Identities:
+        View = (
+          <Identities
+            dispatcher={this.props.dispatcher}
+            identities={this.props.identities}
+            repositoryIdentityStates={this.props.repositoryIdentityStates}
+          />
+        )
+        break
       case PreferencesTab.Appearance:
         View = (
           <Appearance

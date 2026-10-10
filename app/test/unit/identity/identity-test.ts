@@ -13,6 +13,10 @@ import {
   getConfiguredRemote,
   isSelectedByDefault,
 } from '../../../src/lib/identity/identity-changes'
+import {
+  formatRules,
+  parseRules,
+} from '../../../src/lib/identity/identity-rules'
 import { inferIdentities } from '../../../src/lib/identity/infer-identities'
 import { IRepositoryIdentityState } from '../../../src/lib/identity/repository-identity'
 import { IIdentity } from '../../../src/models/identity'
@@ -293,5 +297,20 @@ describe('identity', () => {
         ]
       )
     })
+  })
+
+  it('parses rules written one per line', () => {
+    const rules = parseRules(
+      ' github.com/acme/ \n\nhttps://gitlab.com/group/sub\ngitea.example.com\n'
+    )
+    assert.deepStrictEqual(rules, [
+      { host: 'github.com', namespace: 'acme' },
+      { host: 'gitlab.com', namespace: 'group/sub' },
+      { host: 'gitea.example.com' },
+    ])
+    assert.equal(
+      formatRules(rules),
+      'github.com/acme\ngitlab.com/group/sub\ngitea.example.com'
+    )
   })
 })
