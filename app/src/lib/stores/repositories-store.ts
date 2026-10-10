@@ -295,7 +295,7 @@ export class RepositoriesStore extends TypedBaseStore<
   }
 
   /**
-   * Set the alias and pin order of several repositories in a single
+   * Set the alias, pin order and identity of several repositories in a single
    * transaction. Repositories that aren't listed keep their values.
    */
   public async updateRepositoriesLayout(
@@ -303,12 +303,18 @@ export class RepositoriesStore extends TypedBaseStore<
       readonly repository: Repository
       readonly alias: string | null
       readonly pinOrder: number | null
+      /** Left out to keep how the repository chooses its identity. */
+      readonly identity?: RepositoryIdentityBinding
     }>
   ): Promise<void> {
     await this.db.transaction('rw', this.db.repositories, () =>
       Promise.all(
-        layout.map(({ repository, alias, pinOrder }) =>
-          this.db.repositories.update(repository.id, { alias, pinOrder })
+        layout.map(({ repository, alias, pinOrder, identity }) =>
+          this.db.repositories.update(repository.id, {
+            alias,
+            pinOrder,
+            ...(identity !== undefined ? { identity } : {}),
+          })
         )
       )
     )

@@ -26,6 +26,9 @@ interface IApplyIdentitiesDialogProps {
   readonly explicit: boolean
 
   readonly onDismissed: () => void
+
+  /** Called once the dialog is closed, whether or not changes were applied. */
+  readonly onFinished?: () => void
 }
 
 interface IApplyIdentitiesDialogState {
@@ -60,6 +63,11 @@ export class ApplyIdentitiesDialog extends React.Component<
     this.state = { selected, applying: false }
   }
 
+  private onDismissed = () => {
+    this.props.onDismissed()
+    this.props.onFinished?.()
+  }
+
   private onSelectionChanged = (selected: ReadonlySet<string>) => {
     this.setState({ selected })
   }
@@ -77,7 +85,7 @@ export class ApplyIdentitiesDialog extends React.Component<
 
     this.setState({ applying: true })
     await this.props.dispatcher.applyIdentityChanges(entries)
-    this.props.onDismissed()
+    this.onDismissed()
   }
 
   private renderEntry = ({
@@ -121,7 +129,7 @@ export class ApplyIdentitiesDialog extends React.Component<
         id="apply-identities"
         className="identities-dialog"
         title={title}
-        onDismissed={this.props.onDismissed}
+        onDismissed={this.onDismissed}
         onSubmit={this.onSubmit}
         loading={this.state.applying}
         disabled={this.state.applying}

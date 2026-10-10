@@ -585,6 +585,8 @@ export type PopupDetail =
       }>
       /** Whether the user asked for the identities, see `ApplyIdentitiesDialog`. */
       explicit: boolean
+      /** Called once the dialog is closed, whether or not changes were applied. */
+      onFinished?: () => void
     }
   | {
       type: PopupType.EditIdentity

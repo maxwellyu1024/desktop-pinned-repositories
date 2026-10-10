@@ -2,10 +2,15 @@ import assert from 'node:assert'
 import { describe, it } from 'node:test'
 import { Repository } from '../../../src/models/repository'
 import {
+  IIdentity,
+  RepositoryIdentityBinding,
+} from '../../../src/models/identity'
+import {
   ConfigurationFileError,
   fromPortablePath,
   parseConfiguration,
   serializeConfiguration,
+  toConfigurationIdentity,
   toPortablePath,
 } from '../../../src/lib/configuration/configuration-file'
 
@@ -15,7 +20,8 @@ const repository = (
   id: number,
   path: string,
   alias: string | null = null,
-  pinOrder: number | null = null
+  pinOrder: number | null = null,
+  identity?: RepositoryIdentityBinding
 ) =>
   new Repository(
     path,
@@ -27,8 +33,19 @@ const repository = (
     false,
     undefined,
     undefined,
-    pinOrder
+    pinOrder,
+    identity
   )
+
+const work: IIdentity = {
+  id: 'work-id',
+  label: 'Work',
+  authorName: 'Me',
+  authorEmail: 'me@work.example',
+  signing: { format: 'ssh', key: '~/.ssh/work.pub' },
+  sshHostAlias: 'github-work',
+  rules: [{ host: 'github.com', namespace: 'acme' }, { host: 'git.work' }],
+}
 
 const parseError = (text: string) => {
   try {
@@ -59,6 +76,7 @@ describe('configuration file', { skip: process.platform === 'win32' }, () => {
   describe('serializeConfiguration', () => {
     it('lists pinned repositories first, then the rest by name', () => {
       const text = serializeConfiguration(
+        [],
         [
           repository(1, '/Users/me/dev/zeta'),
           repository(2, '/Users/me/dev/pinned-second', null, 5),
@@ -73,7 +91,8 @@ describe('configuration file', { skip: process.platform === 'win32' }, () => {
         text,
         [
           '{',
-          '  "version": 1,',
+          '  "version": 2,',
+          '  "identities": [],',
           '  "repositories": [',
           '    { "path": "~/dev/pinned-first", "alias": "First", "pinned": true },',
           '    { "path": "~/dev/pinned-second", "pinned": true },',
@@ -91,13 +110,62 @@ describe('configuration file', { skip: process.platform === 'win32' }, () => {
     })
 
     it('writes empty sections compactly and round trips', () => {
-      const text = serializeConfiguration([], {}, home)
+      const text = serializeConfiguration([], [], {}, home)
       assert.equal(
         text,
-        '{\n  "version": 1,\n  "repositories": [],\n  "settings": {}\n}\n'
+        '{\n  "version": 2,\n  "identities": [],\n  "repositories": [],\n  "settings": {}\n}\n'
       )
       assert.deepEqual(parseConfiguration(text, home), {
+        identities: [],
         repositories: [],
+        settings: {},
+      })
+    })
+
+    it('writes identities and which one each repository uses', () => {
+      const text = serializeConfiguration(
+        [work],
+        [
+          repository(1, '/opt/a', null, null, { kind: 'none' }),
+          repository(2, '/opt/b', null, null, {
+            kind: 'identity',
+            id: 'work-id',
+          }),
+          repository(3, '/opt/c'),
+          repository(4, '/opt/d', null, null, { kind: 'identity', id: 'gone' }),
+        ],
+        {},
+        home
+      )
+
+      assert.equal(
+        text,
+        [
+          '{',
+          '  "version": 2,',
+          '  "identities": [',
+          '    { "label": "Work", "authorName": "Me", "authorEmail": "me@work.example", "signing": {"format":"ssh","key":"~/.ssh/work.pub"}, "sshHostAlias": "github-work", "rules": ["github.com/acme","git.work"] }',
+          '  ],',
+          '  "repositories": [',
+          '    { "path": "/opt/a", "identity": null },',
+          '    { "path": "/opt/b", "identity": "Work" },',
+          '    { "path": "/opt/c" },',
+          '    { "path": "/opt/d" }',
+          '  ],',
+          '  "settings": {}',
+          '}',
+          '',
+        ].join('\n')
+      )
+
+      assert.deepEqual(parseConfiguration(text, home), {
+        identities: [toConfigurationIdentity(work)],
+        repositories: [
+          { path: '/opt/a', alias: null, pinned: false, identity: null },
+          { path: '/opt/b', alias: null, pinned: false, identity: 'Work' },
+          { path: '/opt/c', alias: null, pinned: false },
+          { path: '/opt/d', alias: null, pinned: false },
+        ],
         settings: {},
       })
     })
@@ -150,7 +218,7 @@ describe('configuration file', { skip: process.platform === 'win32' }, () => {
     })
 
     it('rejects unsupported versions and keys', () => {
-      assert.equal(parseError('{ "version": 2 }'), '"version" must be 1.')
+      assert.equal(parseError('{ "version": 3 }'), '"version" must be 1 or 2.')
       assert.equal(
         parseError('{ "version": 1, "colors": {} }'),
         '"colors" is not supported.'
@@ -175,7 +243,7 @@ describe('configuration file', { skip: process.platform === 'win32' }, () => {
         parseError(
           '{ "version": 1, "repositories": [{ "path": "/a", "name": "a" }] }'
         ),
-        'repositories[0].name is not supported. Use "path", "alias" or "pinned".'
+        'repositories[0].name is not supported. Use "path", "alias", "pinned" or "identity".'
       )
       assert.equal(
         parseError('{ "version": 1, "repositories": [{ "path": "dev/a" }] }'),
@@ -184,6 +252,110 @@ describe('configuration file', { skip: process.platform === 'win32' }, () => {
       assert.equal(
         parseError('{ "version": 1, "repositories": [{ "path": "" }] }'),
         'repositories[0].path must be a non-empty string.'
+      )
+    })
+
+    it('reads version 1 files', () => {
+      assert.deepEqual(
+        parseConfiguration(
+          '{ "version": 1, "repositories": [{ "path": "/a" }] }',
+          home
+        ),
+        {
+          repositories: [{ path: '/a', alias: null, pinned: false }],
+          settings: undefined,
+        }
+      )
+    })
+
+    it('reads identities and matches repository identities by label', () => {
+      const configuration = parseConfiguration(
+        JSON.stringify({
+          version: 2,
+          identities: [
+            {
+              label: ' Work ',
+              authorName: 'Me',
+              authorEmail: 'me@work.example',
+              signing: null,
+              sshHostAlias: '  ',
+              rules: ['https://github.com/acme/', 'git.work'],
+            },
+          ],
+          repositories: [{ path: '/a', identity: 'work' }],
+        }),
+        home
+      )
+
+      assert.deepEqual(configuration.identities, [
+        {
+          label: 'Work',
+          authorName: 'Me',
+          authorEmail: 'me@work.example',
+          rules: [
+            { host: 'github.com', namespace: 'acme' },
+            { host: 'git.work' },
+          ],
+        },
+      ])
+      assert.equal(configuration.repositories?.[0].identity, 'Work')
+    })
+
+    it('names the invalid identity field', () => {
+      const identity = (fields: object) =>
+        JSON.stringify({
+          version: 2,
+          identities: [
+            { label: 'A', authorName: 'A', authorEmail: 'a@a', ...fields },
+          ],
+        })
+
+      assert.equal(
+        parseError(identity({ authorEmail: ' ' })),
+        'identities[0].authorEmail must be a non-empty string.'
+      )
+      assert.equal(
+        parseError(identity({ signing: { format: 'pgp', key: 'k' } })),
+        'identities[0].signing.format must be one of "openpgp", "ssh", "x509".'
+      )
+      assert.equal(
+        parseError(identity({ signing: { format: 'ssh' } })),
+        'identities[0].signing.key must be a non-empty string.'
+      )
+      assert.equal(
+        parseError(identity({ rules: ['github.com', ' '] })),
+        'identities[0].rules[1] must be a host, optionally followed by /namespace.'
+      )
+      assert.equal(
+        parseError(identity({ id: 'x' })),
+        'identities[0].id is not supported. Use "label", "authorName", "authorEmail", "signing", "sshHostAlias", "rules".'
+      )
+      assert.equal(
+        parseError(
+          JSON.stringify({
+            version: 2,
+            identities: [
+              { label: 'A', authorName: 'A', authorEmail: 'a@a' },
+              { label: 'a', authorName: 'B', authorEmail: 'b@b' },
+            ],
+          })
+        ),
+        'identities[1].label is the same as identities[0].label.'
+      )
+    })
+
+    it('requires repository identities to be in the file', () => {
+      assert.equal(
+        parseError(
+          '{ "version": 2, "repositories": [{ "path": "/a", "identity": "Work" }] }'
+        ),
+        'repositories[0].identity must be the label of an identity in "identities".'
+      )
+      assert.equal(
+        parseError(
+          '{ "version": 2, "repositories": [{ "path": "/a", "identity": 1 }] }'
+        ),
+        'repositories[0].identity must be a string or null.'
       )
     })
 

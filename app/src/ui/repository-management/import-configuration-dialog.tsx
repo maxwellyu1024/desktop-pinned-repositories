@@ -13,6 +13,7 @@ import { OkCancelButtonGroup } from '../dialog/ok-cancel-button-group'
 import { RadioGroup } from '../lib/radio-group'
 import { PathText } from '../lib/path-text'
 import { formatRepositoryCount } from './repository-picker'
+import { IIdentity } from '../../models/identity'
 
 interface IImportConfigurationDialogProps {
   readonly dispatcher: Dispatcher
@@ -22,6 +23,7 @@ interface IImportConfigurationDialogProps {
   readonly configuration: IConfiguration
   readonly resolved: ReadonlyArray<IResolvedRepositoryEntry>
   readonly repositories: ReadonlyArray<Repository>
+  readonly identities: ReadonlyArray<IIdentity>
   readonly onDismissed: () => void
 }
 
@@ -31,6 +33,9 @@ interface IImportConfigurationDialogState {
 }
 
 const Modes: ReadonlyArray<ImportMode> = ['merge', 'replace']
+
+const formatIdentityCount = (count: number) =>
+  `${count} ${count === 1 ? 'identity' : 'identities'}`
 
 /** Previews what importing a configuration file changes and applies it. */
 export class ImportConfigurationDialog extends React.Component<
@@ -43,11 +48,12 @@ export class ImportConfigurationDialog extends React.Component<
   }
 
   private get plan(): IImportPlan {
-    const { configuration, resolved, repositories } = this.props
+    const { configuration, resolved, repositories, identities } = this.props
     return buildImportPlan(
       configuration,
       resolved,
       repositories,
+      identities,
       this.state.mode
     )
   }
@@ -59,13 +65,13 @@ export class ImportConfigurationDialog extends React.Component<
   private renderModeLabel = (mode: ImportMode) =>
     mode === 'merge' ? (
       <>
-        <strong>Merge</strong> — add and update the repositories in the file,
-        keep the others
+        <strong>Merge</strong> — add and update the repositories and identities
+        in the file, keep the others
       </>
     ) : (
       <>
-        <strong>Match the file</strong> — also remove repositories that aren't
-        in the file
+        <strong>Match the file</strong> — also remove repositories and
+        identities that aren't in the file
       </>
     )
 
@@ -77,7 +83,8 @@ export class ImportConfigurationDialog extends React.Component<
 
   private renderSection(
     title: string,
-    paths: ReadonlyArray<{ readonly key: string; readonly label: string }>
+    paths: ReadonlyArray<{ readonly key: string; readonly label: string }>,
+    formatCount: (count: number) => string = formatRepositoryCount
   ) {
     if (paths.length === 0) {
       return null
@@ -86,7 +93,7 @@ export class ImportConfigurationDialog extends React.Component<
     return (
       <details className="import-section">
         <summary>
-          {title}: {formatRepositoryCount(paths.length)}
+          {title}: {formatCount(paths.length)}
         </summary>
         <ul>
           {paths.map(p => (
@@ -103,13 +110,15 @@ export class ImportConfigurationDialog extends React.Component<
     const plan = this.plan
     const settingsCount = Object.keys(plan.settings).length
     const hasChanges =
+      plan.identities !== null ||
       plan.toAdd.length +
         plan.toUpdate.length +
         plan.toRemove.length +
         settingsCount >
-      0
+        0
     const byPath = (paths: ReadonlyArray<string>) =>
       paths.map(path => ({ key: path, label: path }))
+    const byLabel = byPath
     const byRepository = (repositories: ReadonlyArray<Repository>) =>
       repositories.map(r => ({
         key: r.id.toString(),
@@ -131,7 +140,8 @@ export class ImportConfigurationDialog extends React.Component<
             <PathText path={this.props.path} />
           </div>
 
-          {this.props.configuration.repositories !== undefined && (
+          {(this.props.configuration.repositories !== undefined ||
+            this.props.configuration.identities !== undefined) && (
             <RadioGroup<ImportMode>
               selectedKey={this.state.mode}
               radioButtonKeys={Modes}
@@ -141,9 +151,24 @@ export class ImportConfigurationDialog extends React.Component<
           )}
 
           <div className="import-summary">
+            {this.renderSection(
+              'Add identities',
+              byLabel(plan.identitiesToAdd),
+              formatIdentityCount
+            )}
+            {this.renderSection(
+              'Update identities',
+              byLabel(plan.identitiesToUpdate),
+              formatIdentityCount
+            )}
+            {this.renderSection(
+              'Remove identities (Git config stays as is)',
+              byLabel(plan.identitiesToRemove),
+              formatIdentityCount
+            )}
             {this.renderSection('Add', byPath(plan.toAdd))}
             {this.renderSection(
-              'Update alias or pinned position',
+              'Update alias, pinned position or identity',
               byRepository(plan.toUpdate)
             )}
             {this.renderSection(

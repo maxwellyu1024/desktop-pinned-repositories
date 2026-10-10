@@ -5,13 +5,21 @@ import {
   buildImportPlan,
   IResolvedRepositoryEntry,
 } from '../../../src/lib/configuration/import-plan'
-import { IConfigurationRepository } from '../../../src/lib/configuration/configuration-file'
+import {
+  IConfigurationIdentity,
+  IConfigurationRepository,
+} from '../../../src/lib/configuration/configuration-file'
+import {
+  IIdentity,
+  RepositoryIdentityBinding,
+} from '../../../src/models/identity'
 
 const repository = (
   id: number,
   path: string,
   alias: string | null = null,
-  pinOrder: number | null = null
+  pinOrder: number | null = null,
+  identity?: RepositoryIdentityBinding
 ) =>
   new Repository(
     path,
@@ -23,7 +31,8 @@ const repository = (
     false,
     undefined,
     undefined,
-    pinOrder
+    pinOrder,
+    identity
   )
 
 const entry = (
@@ -61,6 +70,7 @@ describe('buildImportPlan', () => {
       { repositories },
       resolve(repositories, ['/gone']),
       current,
+      [],
       'merge'
     )
 
@@ -87,6 +97,7 @@ describe('buildImportPlan', () => {
       { repositories },
       resolve(repositories),
       current,
+      [],
       'replace'
     )
 
@@ -116,6 +127,7 @@ describe('buildImportPlan', () => {
       { repositories },
       resolve(repositories),
       current,
+      [],
       'replace'
     )
 
@@ -130,6 +142,7 @@ describe('buildImportPlan', () => {
       { repositories },
       repositories.map(e => ({ entry: e, path: '/b' })),
       current,
+      [],
       'merge'
     )
 
@@ -142,11 +155,169 @@ describe('buildImportPlan', () => {
       { settings: { theme: 'dark' } },
       [],
       current,
+      [],
       'replace'
     )
 
     assert.deepEqual(plan.toRemove, [])
     assert.deepEqual(plan.layout, [])
     assert.deepEqual(plan.settings, { theme: 'dark' })
+  })
+})
+
+describe('buildImportPlan with identities', () => {
+  const fileIdentity = (
+    label: string,
+    authorEmail = `${label.toLowerCase()}@example.com`
+  ): IConfigurationIdentity => ({
+    label,
+    authorName: label,
+    authorEmail,
+    rules: [{ host: 'github.com', namespace: label.toLowerCase() }],
+  })
+  const identity = (id: string, label: string, authorEmail?: string) =>
+    ({ id, ...fileIdentity(label, authorEmail) } as IIdentity)
+
+  const currentIdentities = [
+    identity('home-id', 'Home'),
+    identity('work-id', 'Work'),
+    identity('old-id', 'Old'),
+  ]
+  const current = [
+    repository(1, '/a', null, null, { kind: 'identity', id: 'work-id' }),
+    repository(2, '/b', null, null, { kind: 'none' }),
+    repository(3, '/c', null, 0, { kind: 'identity', id: 'old-id' }),
+  ]
+  let next = 0
+  const createId = () => `new-${next++}`
+
+  it('merges identities by label and keeps their IDs', () => {
+    next = 0
+    const identities = [
+      fileIdentity('work', 'me@new.example'),
+      fileIdentity('Club'),
+      fileIdentity('Home'),
+    ]
+    const repositories: ReadonlyArray<IConfigurationRepository> = [
+      { path: '/a', alias: null, pinned: false, identity: 'Club' },
+      { path: '/b', alias: null, pinned: false, identity: null },
+      { path: '/new', alias: null, pinned: false },
+    ]
+    const plan = buildImportPlan(
+      { identities, repositories },
+      resolve(repositories),
+      current,
+      currentIdentities,
+      'merge',
+      createId
+    )
+
+    assert.deepEqual(
+      plan.identities?.map(i => [i.id, i.label]),
+      [
+        ['work-id', 'work'],
+        ['new-0', 'Club'],
+        ['home-id', 'Home'],
+        ['old-id', 'Old'],
+      ]
+    )
+    assert.deepEqual(plan.identitiesToAdd, ['Club'])
+    assert.deepEqual(plan.identitiesToUpdate, ['work'])
+    assert.deepEqual(plan.identitiesToRemove, [])
+
+    assert.deepEqual(plan.layout, [
+      {
+        path: '/a',
+        alias: null,
+        pinOrder: null,
+        identity: { kind: 'identity', id: 'new-0' },
+      },
+      { path: '/b', alias: null, pinOrder: null, identity: { kind: 'none' } },
+      {
+        path: '/new',
+        alias: null,
+        pinOrder: null,
+        identity: { kind: 'automatic' },
+      },
+      // Pinned repositories that aren't in the file keep their identity.
+      { path: '/c', alias: null, pinOrder: 0 },
+    ])
+    assert.deepEqual(
+      plan.toUpdate.map(r => r.path),
+      ['/a']
+    )
+  })
+
+  it('removes identities missing from the file when replacing', () => {
+    const plan = buildImportPlan(
+      { identities: [fileIdentity('Work')] },
+      [],
+      current,
+      currentIdentities,
+      'replace',
+      createId
+    )
+
+    assert.deepEqual(
+      plan.identities?.map(i => i.id),
+      ['work-id']
+    )
+    assert.deepEqual(plan.identitiesToRemove, ['Home', 'Old'])
+    assert.deepEqual(plan.toRemove, [])
+  })
+
+  it('reports no identity changes when the file matches', () => {
+    const plan = buildImportPlan(
+      {
+        identities: [
+          fileIdentity('Home'),
+          fileIdentity('Work'),
+          fileIdentity('Old'),
+        ],
+      },
+      [],
+      current,
+      currentIdentities,
+      'replace',
+      createId
+    )
+
+    assert.equal(plan.identities, null)
+
+    const reordered = buildImportPlan(
+      { identities: [fileIdentity('Work')] },
+      [],
+      current,
+      currentIdentities,
+      'merge',
+      createId
+    )
+    assert.deepEqual(reordered.identitiesToUpdate, [])
+    assert.deepEqual(
+      reordered.identities?.map(i => i.id),
+      ['work-id', 'home-id', 'old-id']
+    )
+  })
+
+  it('keeps identities when the file has none', () => {
+    const repositories: ReadonlyArray<IConfigurationRepository> = [
+      { path: '/a', alias: null, pinned: false },
+      { path: '/b', alias: null, pinned: false, identity: null },
+    ]
+    const plan = buildImportPlan(
+      { repositories },
+      resolve(repositories),
+      current,
+      currentIdentities,
+      'merge',
+      createId
+    )
+
+    assert.equal(plan.identities, null)
+    assert.deepEqual(plan.layout.slice(0, 2), [
+      { path: '/a', alias: null, pinOrder: null },
+      { path: '/b', alias: null, pinOrder: null, identity: { kind: 'none' } },
+    ])
+    assert.deepEqual(plan.toUpdate, [])
   })
 })

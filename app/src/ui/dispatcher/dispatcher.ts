@@ -253,11 +253,13 @@ export class Dispatcher {
   /**
    * Show what applying their identities changes in the given repositories,
    * if anything. See `ApplyIdentitiesDialog` for `explicit`.
+   *
+   * @returns Whether there was anything to review.
    */
   public reviewRepositoryIdentities(
     repositories: ReadonlyArray<Repository>,
     explicit: boolean
-  ): Promise<void> {
+  ): Promise<boolean> {
     return this.appStore._reviewRepositoryIdentities(repositories, explicit)
   }
 

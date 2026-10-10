@@ -1,10 +1,30 @@
 import * as Path from 'path'
 import { Repository } from '../../models/repository'
-import { Settings, SettingValue, validateSetting } from './settings'
+import { Settings, validateSetting } from './settings'
 import { findJsonSyntaxError } from './json-error-location'
+import {
+  IIdentity,
+  IIdentityRule,
+  IIdentitySigning,
+  SigningFormats,
+} from '../../models/identity'
+import { formatRules, parseRules } from '../identity/identity-rules'
 
 /** The version of the configuration file format written by this build. */
-export const ConfigurationFileVersion = 1
+export const ConfigurationFileVersion = 2
+
+/** The versions this build reads, version 1 has no identities. */
+const SupportedVersions: ReadonlyArray<number> = [1, 2]
+
+/** An identity in a configuration file, identified by its label. */
+export interface IConfigurationIdentity {
+  readonly label: string
+  readonly authorName: string
+  readonly authorEmail: string
+  readonly signing?: IIdentitySigning
+  readonly sshHostAlias?: string
+  readonly rules: ReadonlyArray<IIdentityRule>
+}
 
 /** A repository entry in a configuration file. */
 export interface IConfigurationRepository {
@@ -12,13 +32,22 @@ export interface IConfigurationRepository {
   readonly path: string
   readonly alias: string | null
   readonly pinned: boolean
+
+  /**
+   * The label of the identity the repository uses, null for none. Left out
+   * when the entry doesn't say, which means choosing one automatically.
+   */
+  readonly identity?: string | null
 }
 
 /**
- * The contents of a configuration file. Both sections are optional so that a
- * file can carry only repositories or only settings.
+ * The contents of a configuration file. Every section is optional so that a
+ * file can carry only some of them.
  */
 export interface IConfiguration {
+  /** Identities in order of precedence. */
+  readonly identities?: ReadonlyArray<IConfigurationIdentity>
+
   /** Repositories in file order, which is also the order of pinned ones. */
   readonly repositories?: ReadonlyArray<IConfigurationRepository>
   readonly settings?: Settings
@@ -71,24 +100,66 @@ function sortForExport(repositories: ReadonlyArray<Repository>) {
 }
 
 /** Format an object on a single line, e.g. `{ "path": "~/dev", "pinned": true }`. */
-function formatInline(entries: ReadonlyArray<[string, SettingValue]>) {
+function formatInline(entries: ReadonlyArray<[string, unknown]>) {
   const fields = entries.map(
     ([key, value]) => `${JSON.stringify(key)}: ${JSON.stringify(value)}`
   )
   return `{ ${fields.join(', ')} }`
 }
 
+/** The fields of an identity as written to a configuration file. */
+export function toConfigurationIdentity(
+  identity: IConfigurationIdentity
+): IConfigurationIdentity {
+  const { label, authorName, authorEmail, signing, sshHostAlias, rules } =
+    identity
+  return {
+    label,
+    authorName,
+    authorEmail,
+    ...(signing !== undefined ? { signing } : {}),
+    ...(sshHostAlias !== undefined ? { sshHostAlias } : {}),
+    rules,
+  }
+}
+
+/** The identity of a repository as written to a configuration file. */
+function formatRepositoryIdentity(
+  repository: Repository,
+  identities: ReadonlyArray<IIdentity>
+): string | null | undefined {
+  const binding = repository.identity
+  switch (binding.kind) {
+    case 'automatic':
+      return undefined
+    case 'none':
+      return null
+    case 'identity':
+      return identities.find(i => i.id === binding.id)?.label
+  }
+}
+
 /**
- * Serialize repositories and settings into a configuration file meant to be
- * edited by hand: one repository per line and one setting per line.
+ * Serialize identities, repositories and settings into a configuration file
+ * meant to be edited by hand: one entry per line.
  */
 export function serializeConfiguration(
+  identities: ReadonlyArray<IIdentity>,
   repositories: ReadonlyArray<Repository>,
   settings: Settings,
   homeDirectory: string
 ): string {
+  const identityLines = identities.map(identity => {
+    const { rules, ...fields } = toConfigurationIdentity(identity)
+    const entries: Array<[string, unknown]> = [
+      ...Object.entries(fields),
+      ['rules', rules.map(rule => formatRules([rule]))],
+    ]
+    return `    ${formatInline(entries)}`
+  })
+
   const repositoryLines = sortForExport(repositories).map(repository => {
-    const fields: Array<[string, SettingValue]> = [
+    const fields: Array<[string, unknown]> = [
       ['path', toPortablePath(repository.path, homeDirectory)],
     ]
     if (repository.alias !== null) {
@@ -96,6 +167,10 @@ export function serializeConfiguration(
     }
     if (repository.pinOrder !== null) {
       fields.push(['pinned', true])
+    }
+    const identity = formatRepositoryIdentity(repository, identities)
+    if (identity !== undefined) {
+      fields.push(['identity', identity])
     }
     return `    ${formatInline(fields)}`
   })
@@ -117,6 +192,7 @@ export function serializeConfiguration(
   return [
     '{',
     `  "version": ${ConfigurationFileVersion},`,
+    section('identities', '[', identityLines, ']') + ',',
     section('repositories', '[', repositoryLines, ']') + ',',
     section('settings', '{', settingLines, '}'),
     '}',
@@ -141,7 +217,8 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 function parseRepositories(
   value: unknown,
-  homeDirectory: string
+  homeDirectory: string,
+  identities: ReadonlyArray<IConfigurationIdentity> | undefined
 ): ReadonlyArray<IConfigurationRepository> {
   if (!Array.isArray(value)) {
     throw new ConfigurationFileError('"repositories" must be an array.')
@@ -157,14 +234,14 @@ function parseRepositories(
     }
 
     for (const key of Object.keys(item)) {
-      if (key !== 'path' && key !== 'alias' && key !== 'pinned') {
+      if (!RepositoryKeys.includes(key)) {
         throw new ConfigurationFileError(
-          `${at}.${key} is not supported. Use "path", "alias" or "pinned".`
+          `${at}.${key} is not supported. Use "path", "alias", "pinned" or "identity".`
         )
       }
     }
 
-    const { path, alias, pinned } = item
+    const { path, alias, pinned, identity } = item
 
     if (typeof path !== 'string' || path.trim().length === 0) {
       throw new ConfigurationFileError(`${at}.path must be a non-empty string.`)
@@ -202,6 +279,170 @@ function parseRepositories(
       path: absolutePath,
       alias: trimmedAlias.length > 0 ? trimmedAlias : null,
       pinned: pinned === true,
+      ...parseRepositoryIdentity(identity, `${at}.identity`, identities),
+    }
+  })
+}
+
+const RepositoryKeys: ReadonlyArray<string> = [
+  'path',
+  'alias',
+  'pinned',
+  'identity',
+]
+
+/** The identity of a repository entry, which must name one in the file. */
+function parseRepositoryIdentity(
+  value: unknown,
+  at: string,
+  identities: ReadonlyArray<IConfigurationIdentity> | undefined
+): { readonly identity?: string | null } {
+  if (value === undefined) {
+    return {}
+  }
+  if (value === null) {
+    return { identity: null }
+  }
+  if (typeof value !== 'string') {
+    throw new ConfigurationFileError(`${at} must be a string or null.`)
+  }
+
+  const label = value.trim().toLowerCase()
+  const identity = identities?.find(i => i.label.toLowerCase() === label)
+  if (identity === undefined) {
+    throw new ConfigurationFileError(
+      `${at} must be the label of an identity in "identities".`
+    )
+  }
+
+  return { identity: identity.label }
+}
+
+const IdentityKeys: ReadonlyArray<string> = [
+  'label',
+  'authorName',
+  'authorEmail',
+  'signing',
+  'sshHostAlias',
+  'rules',
+]
+
+function parseNonEmptyString(value: unknown, at: string) {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new ConfigurationFileError(`${at} must be a non-empty string.`)
+  }
+  return value.trim()
+}
+
+function parseSigning(
+  value: unknown,
+  at: string
+): IIdentitySigning | undefined {
+  if (value === undefined || value === null) {
+    return undefined
+  }
+  if (!isPlainObject(value)) {
+    throw new ConfigurationFileError(`${at} must be an object or null.`)
+  }
+
+  for (const key of Object.keys(value)) {
+    if (key !== 'format' && key !== 'key') {
+      throw new ConfigurationFileError(
+        `${at}.${key} is not supported. Use "format" or "key".`
+      )
+    }
+  }
+
+  const format = SigningFormats.find(f => f === value.format)
+  if (format === undefined) {
+    throw new ConfigurationFileError(
+      `${at}.format must be one of ${SigningFormats.map(f => `"${f}"`).join(
+        ', '
+      )}.`
+    )
+  }
+
+  return { format, key: parseNonEmptyString(value.key, `${at}.key`) }
+}
+
+function parseIdentityRules(
+  value: unknown,
+  at: string
+): ReadonlyArray<IIdentityRule> {
+  if (value === undefined) {
+    return []
+  }
+  if (!Array.isArray(value)) {
+    throw new ConfigurationFileError(`${at} must be an array.`)
+  }
+
+  return value.map((rule: unknown, index) => {
+    const parsed =
+      typeof rule === 'string' && !rule.includes('\n') ? parseRules(rule) : []
+    if (parsed.length !== 1) {
+      throw new ConfigurationFileError(
+        `${at}[${index}] must be a host, optionally followed by /namespace.`
+      )
+    }
+    return parsed[0]
+  })
+}
+
+function parseIdentities(
+  value: unknown
+): ReadonlyArray<IConfigurationIdentity> {
+  if (!Array.isArray(value)) {
+    throw new ConfigurationFileError('"identities" must be an array.')
+  }
+
+  const seen = new Map<string, number>()
+
+  return value.map((item: unknown, index) => {
+    const at = `identities[${index}]`
+
+    if (!isPlainObject(item)) {
+      throw new ConfigurationFileError(`${at} must be an object.`)
+    }
+
+    for (const key of Object.keys(item)) {
+      if (!IdentityKeys.includes(key)) {
+        throw new ConfigurationFileError(
+          `${at}.${key} is not supported. Use ${IdentityKeys.map(
+            k => `"${k}"`
+          ).join(', ')}.`
+        )
+      }
+    }
+
+    const label = parseNonEmptyString(item.label, `${at}.label`)
+    const duplicateOf = seen.get(label.toLowerCase())
+    if (duplicateOf !== undefined) {
+      throw new ConfigurationFileError(
+        `${at}.label is the same as identities[${duplicateOf}].label.`
+      )
+    }
+    seen.set(label.toLowerCase(), index)
+
+    const { sshHostAlias } = item
+    if (
+      sshHostAlias !== undefined &&
+      sshHostAlias !== null &&
+      typeof sshHostAlias !== 'string'
+    ) {
+      throw new ConfigurationFileError(
+        `${at}.sshHostAlias must be a string or null.`
+      )
+    }
+    const alias = typeof sshHostAlias === 'string' ? sshHostAlias.trim() : ''
+    const signing = parseSigning(item.signing, `${at}.signing`)
+
+    return {
+      label,
+      authorName: parseNonEmptyString(item.authorName, `${at}.authorName`),
+      authorEmail: parseNonEmptyString(item.authorEmail, `${at}.authorEmail`),
+      ...(signing !== undefined ? { signing } : {}),
+      ...(alias.length > 0 ? { sshHostAlias: alias } : {}),
+      rules: parseIdentityRules(item.rules, `${at}.rules`),
     }
   })
 }
@@ -220,6 +461,13 @@ function parseSettings(value: unknown): Settings {
 
   return value as Settings
 }
+
+const ConfigurationKeys: ReadonlyArray<string> = [
+  'version',
+  'identities',
+  'repositories',
+  'settings',
+]
 
 /**
  * Parse and validate a configuration file.
@@ -250,22 +498,26 @@ export function parseConfiguration(
   }
 
   for (const key of Object.keys(json)) {
-    if (key !== 'version' && key !== 'repositories' && key !== 'settings') {
+    if (!ConfigurationKeys.includes(key)) {
       throw new ConfigurationFileError(`"${key}" is not supported.`)
     }
   }
 
-  if (json.version !== ConfigurationFileVersion) {
+  if (!SupportedVersions.some(v => v === json.version)) {
     throw new ConfigurationFileError(
-      `"version" must be ${ConfigurationFileVersion}.`
+      `"version" must be ${SupportedVersions.join(' or ')}.`
     )
   }
 
+  const identities =
+    json.identities === undefined ? undefined : parseIdentities(json.identities)
+
   return {
+    ...(identities !== undefined ? { identities } : {}),
     repositories:
       json.repositories === undefined
         ? undefined
-        : parseRepositories(json.repositories, homeDirectory),
+        : parseRepositories(json.repositories, homeDirectory, identities),
     settings:
       json.settings === undefined ? undefined : parseSettings(json.settings),
   }

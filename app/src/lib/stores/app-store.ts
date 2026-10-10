@@ -8324,8 +8324,13 @@ export class AppStore extends TypedBaseStore<IAppState> {
     }
   }
 
+  /**
+   * @param reviewIdentities  Whether to then show what applying their
+   *                          identities changes in the new repositories.
+   */
   public async _addRepositories(
-    paths: ReadonlyArray<string>
+    paths: ReadonlyArray<string>,
+    reviewIdentities: boolean = true
   ): Promise<ReadonlyArray<Repository>> {
     const addedRepositories = new Array<Repository>()
     const newRepositories = new Array<Repository>()
@@ -8399,7 +8404,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
       })
     }
 
-    await this._reviewRepositoryIdentities(newRepositories, false)
+    if (reviewIdentities) {
+      await this._reviewRepositoryIdentities(newRepositories, false)
+    }
 
     return addedRepositories
   }
@@ -8416,15 +8423,18 @@ export class AppStore extends TypedBaseStore<IAppState> {
    * Show what applying their identities changes in the given repositories,
    * if anything.
    *
-   * @param explicit  Whether the user asked for the identities, in which case
-   *                  overwriting existing values is selected by default.
+   * @param explicit    Whether the user asked for the identities, in which
+   *                    case overwriting existing values is selected by default.
+   * @param onFinished  Called once the review is closed.
+   * @returns Whether there was anything to review.
    */
   public async _reviewRepositoryIdentities(
     repositories: ReadonlyArray<Repository>,
-    explicit: boolean
-  ): Promise<void> {
+    explicit: boolean,
+    onFinished?: () => void
+  ): Promise<boolean> {
     if (this.identityTracker.getIdentities().length === 0) {
-      return
+      return false
     }
 
     const states = await this._loadRepositoryIdentityStates(repositories)
@@ -8436,9 +8446,17 @@ export class AppStore extends TypedBaseStore<IAppState> {
         : []
     })
 
-    if (entries.length > 0) {
-      this._showPopup({ type: PopupType.ApplyIdentities, entries, explicit })
+    if (entries.length === 0) {
+      return false
     }
+
+    this._showPopup({
+      type: PopupType.ApplyIdentities,
+      entries,
+      explicit,
+      onFinished,
+    })
+    return true
   }
 
   /**
@@ -8703,6 +8721,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
     }
 
     const contents = serializeConfiguration(
+      this.identityTracker.getIdentities(),
       this.repositories,
       readSettings(),
       homedir()
@@ -8778,33 +8797,67 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   /**
-   * Apply an import plan. The window reloads afterwards when settings were
-   * imported, since they're only read at startup.
+   * Apply an import plan, then show what applying their identities changes in
+   * the repositories it touched. The window reloads afterwards when settings
+   * were imported, since they're only read at startup.
    */
   public async _importConfiguration(plan: IImportPlan): Promise<void> {
+    let reviewed: ReadonlyArray<Repository>
+
     try {
+      if (plan.identities !== null) {
+        await this.repositoriesStore.saveIdentities(plan.identities)
+        await this.identityTracker.setIdentities(
+          plan.identities,
+          this.repositories
+        )
+      }
+
       if (plan.toAdd.length > 0) {
-        await this._addRepositories(plan.toAdd)
+        await this._addRepositories(plan.toAdd, false)
       }
 
       const repositories = await this.repositoriesStore.getAll()
-      const layout = plan.layout.flatMap(({ path, alias, pinOrder }) => {
-        const repository = matchExistingRepository(repositories, path)
-        return repository === undefined ? [] : [{ repository, alias, pinOrder }]
-      })
+      const layout = plan.layout.flatMap(
+        ({ path, alias, pinOrder, identity }) => {
+          const repository = matchExistingRepository(repositories, path)
+          return repository === undefined
+            ? []
+            : [{ repository, alias, pinOrder, identity }]
+        }
+      )
       await this.repositoriesStore.updateRepositoriesLayout(layout)
 
       if (plan.toRemove.length > 0) {
         await this.repositoriesStore.removeRepositories(plan.toRemove)
       }
+
+      // Changed identities can affect every repository, otherwise only the
+      // ones whose identity the file sets.
+      const ids = new Set(
+        layout.filter(l => l.identity !== undefined).map(l => l.repository.id)
+      )
+      const updated = await this.repositoriesStore.getAll()
+      reviewed =
+        plan.identities !== null ? updated : updated.filter(r => ids.has(r.id))
     } catch (err) {
       this.emitError(err)
       return
     }
 
+    let onFinished: (() => void) | undefined
     if (Object.keys(plan.settings).length > 0) {
       writeSettings(plan.settings)
-      window.location.reload()
+      onFinished = () => window.location.reload()
+    }
+
+    const reviewing = await this._reviewRepositoryIdentities(
+      reviewed,
+      false,
+      onFinished
+    )
+    if (!reviewing) {
+      onFinished?.()
     }
   }
 

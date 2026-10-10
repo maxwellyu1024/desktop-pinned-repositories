@@ -3142,6 +3142,7 @@ export class App extends React.Component<IAppProps, IAppState> {
             configuration={popup.configuration}
             resolved={popup.resolved}
             repositories={this.localRepositories}
+            identities={this.state.identities}
             onDismissed={onPopupDismissedFn}
           />
         )
@@ -3153,6 +3154,7 @@ export class App extends React.Component<IAppProps, IAppState> {
             entries={popup.entries}
             explicit={popup.explicit}
             onDismissed={onPopupDismissedFn}
+            onFinished={popup.onFinished}
           />
         )
       case PopupType.EditIdentity:
