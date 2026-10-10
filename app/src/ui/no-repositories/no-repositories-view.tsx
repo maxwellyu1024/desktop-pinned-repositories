@@ -286,144 +286,145 @@ export class NoRepositoriesView extends React.Component<
   // See https://github.com/desktop/desktop/issues/8394
   private onShowClone = () => this.props.onClone()
 
-  private renderButtonGroupButton(
+  private renderAction(
     symbol: OcticonSymbol,
     title: string,
+    description: string,
     onClick: () => void,
-    type?: 'submit',
-    autoFocus?: boolean
+    options: { readonly type?: 'submit'; readonly autoFocus?: boolean } = {}
   ) {
     return (
-      <span>
-        <Button onClick={onClick} type={type} autoFocus={autoFocus}>
-          <Octicon symbol={symbol} />
-          <div>{title}</div>
-        </Button>
-      </span>
+      <Button
+        className="get-started-action"
+        onClick={onClick}
+        type={options.type}
+        autoFocus={options.autoFocus}
+      >
+        <Octicon symbol={symbol} />
+        <span className="get-started-action-text">
+          <span className="title">{title}</span>
+          <span className="description">{description}</span>
+        </span>
+      </Button>
     )
   }
 
-  private renderTutorialRepositoryButton() {
+  private renderActionGroup(
+    id: string,
+    title: string,
+    actions: ReadonlyArray<JSX.Element | null>
+  ) {
+    return (
+      <div
+        className="get-started-group"
+        role="group"
+        aria-labelledby={`get-started-${id}`}
+      >
+        <h2 id={`get-started-${id}`}>{title}</h2>
+        {actions}
+      </div>
+    )
+  }
+
+  private renderTutorialRepositoryAction() {
     // No tutorial if you're not signed in.
     if (!this.isUserSignedIn()) {
       return null
     }
 
-    if (this.props.tutorialPaused) {
-      return this.renderButtonGroupButton(
-        octicons.mortarBoard,
-        __DARWIN__
-          ? 'Return to In Progress Tutorial'
-          : 'Return to in progress tutorial',
-        this.props.onResumeTutorialRepository,
-        'submit'
-      )
-    } else {
-      return this.renderButtonGroupButton(
-        octicons.mortarBoard,
-        __DARWIN__
-          ? 'Create a Tutorial Repository…'
-          : 'Create a tutorial repository…',
-        this.props.onCreateTutorialRepository,
-        'submit'
-      )
-    }
-  }
-
-  private renderCloneButton() {
-    return this.renderButtonGroupButton(
-      octicons.repoClone,
-      __DARWIN__
-        ? 'Clone a Repository from the Internet…'
-        : 'Clone a repository from the Internet…',
-      this.onShowClone,
-      undefined,
-      !this.isUserSignedIn()
-    )
-  }
-
-  private renderCreateRepositoryButton() {
-    return this.renderButtonGroupButton(
-      octicons.plus,
-      __DARWIN__
-        ? 'Create a New Repository on your Local Drive…'
-        : 'Create a New Repository on your local drive…',
-      this.props.onCreate
-    )
-  }
-
-  private renderAddExistingRepositoryButton() {
-    return this.renderButtonGroupButton(
-      octicons.fileDirectory,
-      __DARWIN__
-        ? 'Add an Existing Repository from your Local Drive…'
-        : 'Add an Existing Repository from your local drive…',
-      this.props.onAdd
-    )
-  }
-
-  private renderImportButton(
-    symbol: OcticonSymbol,
-    title: string,
-    onClick: () => void
-  ) {
-    return (
-      <Button onClick={onClick}>
-        <Octicon symbol={symbol} />
-        <span>{title}</span>
-      </Button>
-    )
-  }
-
-  /** Ways to bring in many repositories at once. */
-  private renderImportActions() {
-    return (
-      <div
-        className="import-actions"
-        role="group"
-        aria-labelledby="import-actions-title"
-      >
-        <h2 id="import-actions-title">Already have repositories?</h2>
-        {this.renderImportButton(
-          octicons.apps,
+    return this.props.tutorialPaused
+      ? this.renderAction(
+          octicons.mortarBoard,
           __DARWIN__
-            ? 'Add Repositories from Other Apps…'
-            : 'Add repositories from other apps…',
-          this.props.onAddFromApps
-        )}
-        {this.renderImportButton(
+            ? 'Return to In Progress Tutorial'
+            : 'Return to in progress tutorial',
+          'Continue where you left off',
+          this.props.onResumeTutorialRepository,
+          { type: 'submit' }
+        )
+      : this.renderAction(
+          octicons.mortarBoard,
+          __DARWIN__
+            ? 'Create a Tutorial Repository…'
+            : 'Create a tutorial repository…',
+          'Learn the basics step by step',
+          this.props.onCreateTutorialRepository,
+          { type: 'submit' }
+        )
+  }
+
+  /** Bring in repositories that are already on this computer. */
+  private renderAddActions() {
+    return this.renderActionGroup(
+      'add',
+      __DARWIN__ ? 'Add from This Computer' : 'Add from this computer',
+      [
+        this.renderAction(
+          octicons.apps,
+          __DARWIN__ ? 'Add from Other Apps…' : 'Add from other apps…',
+          'GitHub Desktop, VS Code, JetBrains, Zed and more',
+          this.props.onAddFromApps,
+          // Without accounts there is no repository list to focus.
+          { autoFocus: !this.isUserSignedIn() }
+        ),
+        this.renderAction(
+          octicons.fileSubmodule,
+          __DARWIN__ ? 'Add from Folder…' : 'Add from folder…',
+          'Find every repository in a folder',
+          this.props.onAddFromFolder
+        ),
+        this.renderAction(
           octicons.fileDirectory,
           __DARWIN__
-            ? 'Add Repositories from Folder…'
-            : 'Add repositories from folder…',
-          this.props.onAddFromFolder
-        )}
-        {this.renderImportButton(
+            ? 'Add an Existing Repository…'
+            : 'Add an existing repository…',
+          'Choose a single repository',
+          this.props.onAdd
+        ),
+        this.renderAction(
           octicons.download,
           __DARWIN__ ? 'Import Configuration…' : 'Import configuration…',
+          'Restore repositories and settings from a file',
           this.props.onImportConfiguration
-        )}
-      </div>
+        ),
+      ]
+    )
+  }
+
+  /** Get a repository that isn't on this computer yet. */
+  private renderCloneOrCreateActions() {
+    return this.renderActionGroup(
+      'new',
+      __DARWIN__ ? 'Clone or Create' : 'Clone or create',
+      [
+        this.renderAction(
+          octicons.repoClone,
+          __DARWIN__ ? 'Clone a Repository…' : 'Clone a repository…',
+          'From one of your accounts or any URL',
+          this.onShowClone
+        ),
+        this.renderAction(
+          octicons.plus,
+          __DARWIN__ ? 'Create a New Repository…' : 'Create a new repository…',
+          'Start a new repository on this computer',
+          this.props.onCreate
+        ),
+        this.renderTutorialRepositoryAction(),
+      ]
     )
   }
 
   private renderGetStartedActions() {
     return (
-      <div className="content-pane">
-        <div className="button-group">
-          {this.renderTutorialRepositoryButton()}
-          {this.renderCloneButton()}
-          {this.renderCreateRepositoryButton()}
-          {this.renderAddExistingRepositoryButton()}
-        </div>
-
-        {this.renderImportActions()}
+      <div className="content-pane get-started-actions">
+        {this.renderAddActions()}
+        {this.renderCloneOrCreateActions()}
 
         <div className="drag-drop-info">
           <Octicon symbol={octicons.lightBulb} />
           <div>
-            <strong>ProTip!</strong> You can drag &amp; drop an existing
-            repository folder here to add it to {__APP_NAME__}
+            <strong>ProTip!</strong> Drag &amp; drop a repository folder here to
+            add it to {__APP_NAME__}
           </div>
         </div>
       </div>
